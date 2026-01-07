@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
+// Frequency buckets for goals and boards.
 type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
+// A reusable goal definition before it becomes a board tile.
 type GoalTemplate = {
   id: string
   text: string
   frequency: Frequency
 }
 
+// A goal as it appears on a board (with completion state).
 type Goal = {
   id: string
   text: string
@@ -16,6 +19,7 @@ type Goal = {
   completed: boolean
 }
 
+// A saved board with its grid size and celebration status.
 type Board = {
   id: string
   title: string
@@ -25,6 +29,7 @@ type Board = {
   celebrated: boolean
 }
 
+// Shape of the localStorage payload.
 type StoredData = {
   boards: Board[]
   currentBoardId: string | null
@@ -48,9 +53,11 @@ const defaultBoardSizeByFrequency: Record<Frequency, number> = {
   yearly: 5,
 }
 
+// Create stable IDs for suggested goals so selections can be tracked.
 const buildSuggestedId = (frequency: Frequency, text: string) =>
   `suggested-${frequency}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)}`
 
+// Built-in goal ideas (no IDs yet).
 const suggestedGoalTemplates: Omit<GoalTemplate, 'id'>[] = [
   { text: 'Drink 8 glasses of water', frequency: 'daily' },
   { text: 'Walk 6,000 steps', frequency: 'daily' },
@@ -154,16 +161,19 @@ const suggestedGoalTemplates: Omit<GoalTemplate, 'id'>[] = [
   { text: 'Review and archive memories', frequency: 'yearly' },
 ]
 
+// Add stable IDs for suggested goals so they can be selected/filtered.
 const suggestedGoals: GoalTemplate[] = suggestedGoalTemplates.map((goal) => ({
   ...goal,
   id: buildSuggestedId(goal.frequency, goal.text),
 }))
 
+// Utility to generate IDs in browsers without crypto.randomUUID.
 const safeRandomId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+// Shuffle an array for random goal selection.
 const shuffle = <T,>(items: T[]) => {
   const clone = [...items]
   for (let i = clone.length - 1; i > 0; i -= 1) {
@@ -173,11 +183,13 @@ const shuffle = <T,>(items: T[]) => {
   return clone
 }
 
+// Turn a board into a shareable URL-safe payload.
 const encodeBoard = (board: Board) => {
   const json = JSON.stringify(board)
   return btoa(encodeURIComponent(json))
 }
 
+// Parse a shared board from the URL.
 const decodeBoard = (encoded: string) => {
   try {
     const json = decodeURIComponent(atob(encoded))
@@ -187,20 +199,24 @@ const decodeBoard = (encoded: string) => {
   }
 }
 
+// Determine board size from stored data or inferred from goal count.
 const getBoardSize = (board: Board | null) => {
   if (!board) return 5
   if (board.size) return board.size
   return Math.round(Math.sqrt(board.goals.length)) || 5
 }
 
+// Ensure custom goals always have IDs (for older saved data).
 const normalizeCustomGoals = (goals: GoalTemplate[]) =>
   goals.map((goal) => (goal.id ? goal : { ...goal, id: safeRandomId() }))
 
+// Ensure board has a size (for older saved data).
 const normalizeBoard = (board: Board): Board => ({
   ...board,
   size: board.size || Math.round(Math.sqrt(board.goals.length)) || 5,
 })
 
+// Compute all possible winning lines for an NxN board.
 const getBingoLines = (size: number) => {
   const lines: number[][] = []
   for (let row = 0; row < size; row += 1) {
@@ -214,9 +230,11 @@ const getBingoLines = (size: number) => {
   return lines
 }
 
+// Check if any row/column/diagonal is fully completed.
 const hasBingo = (goals: Goal[], size: number) =>
   getBingoLines(size).some((line) => line.every((index) => goals[index]?.completed))
 
+// Play a quick celebration tone when a board gets a Bingo.
 const playCelebrationTone = () => {
   if (typeof window === 'undefined') return
   const audioContext = new (window.AudioContext || (window as unknown as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
@@ -233,6 +251,7 @@ const playCelebrationTone = () => {
 }
 
 function App() {
+  // Core app state.
   const [boards, setBoards] = useState<Board[]>([])
   const [currentBoardId, setCurrentBoardId] = useState<string | null>(null)
   const [sharedBoard, setSharedBoard] = useState<Board | null>(null)
@@ -259,6 +278,7 @@ function App() {
   const [isEditingCurrentTitle, setIsEditingCurrentTitle] = useState(false)
   const [currentTitleDraft, setCurrentTitleDraft] = useState('')
 
+  // Derived state for quick lookups.
   const board = useMemo(
     () => boards.find((item) => item.id === currentBoardId) ?? null,
     [boards, currentBoardId]
@@ -305,6 +325,9 @@ function App() {
     [customGoals, libraryFrequency]
   )
 
+  // Load saved data and shared links on startup.
+  // Persist data after initial load.
+  // Detect Bingo and celebrate once.
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY)
     if (stored) {
@@ -396,6 +419,7 @@ function App() {
     setBingoActive(bingo)
   }, [board])
 
+  // Create a new custom goal.
   const handleAddCustomGoal = () => {
     if (!customText.trim()) return
     setCustomGoals((prev) => [
@@ -470,6 +494,7 @@ function App() {
     setSelectedSuggestedIds(new Set())
   }
 
+  // Build a new board from the selected goals and save it to history.
   const handleGenerateBoard = () => {
     setError(null)
     const totalTiles = boardSize * boardSize
@@ -556,6 +581,7 @@ function App() {
     setIsEditingCurrentTitle(false)
   }
 
+  // Create and copy a share link for the current board.
   const handleCopyShareLink = async () => {
     if (!board) return
     const url = new URL(window.location.href)
