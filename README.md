@@ -7,12 +7,32 @@ Goal Bingo is a mobile-friendly web app that turns goal-setting into a bingo gam
 ## Stack
 This app uses React, TypeScript, Vite and CSS
 
-## How-to-use
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-Currently, two official plugins are available:
+## How to Setup
+After pulling the code, you need to follow these steps to run the app: 
+1. Install Node.js 22
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+   ```
+   nvm install 22
+   nvm use 22`
+   ```
+
+3. Install dependencies
+
+   `npm install`
+
+4. Start the dev server (local testing):
+
+   `npm run dev`
+
+5. For mobile/PWA testing, build and preview:
+
+   ```
+   npm run build
+   npm run preview -- --host
+   ```
+
+6. On your phone (same Wi-Fi only), open `http://<your-laptop-ip>:4173` and add it to your home screen (i.e. on iPhone open URL in browser and tap the Share icon and click "Add to Home Screen" 
+
 
 ## React Compiler
 
