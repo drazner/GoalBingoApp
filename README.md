@@ -13,7 +13,7 @@ After pulling the code, you need to follow these steps to run the app:
 
    ```
    nvm install 22
-   nvm use 22`
+   nvm use 22
    ```
 
 3. Install dependencies
