@@ -5,7 +5,7 @@ Goal Bingo is a mobile-friendly web app that turns goal-setting into a bingo gam
 <img width="1414" height="767" alt="image" src="https://github.com/user-attachments/assets/79b26d90-9258-4854-948a-f56b9c024650" />
 
 ## Stack
-This app uses React, TypeScript, Vite and CSS
+This app uses React, TypeScript, Vite and CSS. It also uses Firebase for the database in order to store anonymous user data
 
 ## How to Setup
 After pulling the code, you need to follow these steps to run the app: 
