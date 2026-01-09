@@ -31,6 +31,7 @@ type Goal = {
   text: string
   frequency: Frequency
   completed: boolean
+  sourceGoalId?: string
 }
 
 // A saved board with its grid size and celebration status.
@@ -41,6 +42,17 @@ type Board = {
   goals: Goal[]
   size: number
   celebrated: boolean
+}
+
+type PendingGoalSave = {
+  text: string
+  frequency: Frequency
+  sourceGoalId?: string
+}
+
+type EditGoalModalState = {
+  goalId: string
+  text: string
 }
 
 // Shape of the localStorage payload.
@@ -77,6 +89,40 @@ type UiState = {
   libraryFrequency: Frequency
   librarySource: 'suggested' | 'custom' | 'generated'
 }
+
+const isFrequency = (value: unknown): value is Frequency =>
+  value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'yearly'
+
+const isLibrarySource = (value: unknown): value is UiState['librarySource'] =>
+  value === 'suggested' || value === 'custom' || value === 'generated'
+
+const isBoardSize = (value: unknown): value is number => value === 3 || value === 4 || value === 5
+
+const serializeGoal = (goal: Goal) => ({
+  id: goal.id,
+  text: goal.text,
+  frequency: goal.frequency,
+  completed: goal.completed,
+  ...(goal.sourceGoalId ? { sourceGoalId: goal.sourceGoalId } : {}),
+})
+
+const serializeBoard = (board: Board) => ({
+  id: board.id,
+  title: board.title,
+  createdAt: board.createdAt,
+  size: board.size,
+  celebrated: board.celebrated,
+  goals: board.goals.map(serializeGoal),
+})
+
+const serializeUiState = (state: UiState) => ({
+  generationFrequency: state.generationFrequency,
+  boardSize: state.boardSize,
+  customOnly: state.customOnly,
+  customFrequency: state.customFrequency,
+  libraryFrequency: state.libraryFrequency,
+  librarySource: state.librarySource,
+})
 
 // Create stable IDs for suggested goals so selections can be tracked.
 const buildSuggestedId = (frequency: Frequency, text: string) =>
@@ -332,6 +378,8 @@ function App() {
   const syncingRef = useRef(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [bingoLine, setBingoLine] = useState<number[] | null>(null)
+  const [pendingGoalSave, setPendingGoalSave] = useState<PendingGoalSave | null>(null)
+  const [editGoalModal, setEditGoalModal] = useState<EditGoalModalState | null>(null)
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -396,13 +444,25 @@ function App() {
           setCurrentBoardId(data.currentBoardId ?? null)
           setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
           if (data.uiState) {
-            setGenerationFrequency(data.uiState.generationFrequency)
-            setBoardSize(data.uiState.boardSize)
-            setBoardSizeTouched(true)
-            setCustomOnly(data.uiState.customOnly)
-            setCustomFrequency(data.uiState.customFrequency)
-            setLibraryFrequency(data.uiState.libraryFrequency)
-            setLibrarySource(data.uiState.librarySource)
+            if (isFrequency(data.uiState.generationFrequency)) {
+              setGenerationFrequency(data.uiState.generationFrequency)
+            }
+            if (isBoardSize(data.uiState.boardSize)) {
+              setBoardSize(data.uiState.boardSize)
+              setBoardSizeTouched(true)
+            }
+            if (typeof data.uiState.customOnly === 'boolean') {
+              setCustomOnly(data.uiState.customOnly)
+            }
+            if (isFrequency(data.uiState.customFrequency)) {
+              setCustomFrequency(data.uiState.customFrequency)
+            }
+            if (isFrequency(data.uiState.libraryFrequency)) {
+              setLibraryFrequency(data.uiState.libraryFrequency)
+            }
+            if (isLibrarySource(data.uiState.librarySource)) {
+              setLibrarySource(data.uiState.librarySource)
+            }
           }
         } else if (parsed && typeof parsed === 'object' && 'goals' in parsed) {
           const legacyBoard = normalizeBoard(parsed as Board)
@@ -494,13 +554,25 @@ function App() {
         setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
         setCurrentBoardId(data.currentBoardId ?? null)
         if (data.uiState) {
-          setGenerationFrequency(data.uiState.generationFrequency)
-          setBoardSize(data.uiState.boardSize)
-          setBoardSizeTouched(true)
-          setCustomOnly(data.uiState.customOnly)
-          setCustomFrequency(data.uiState.customFrequency)
-          setLibraryFrequency(data.uiState.libraryFrequency)
-          setLibrarySource(data.uiState.librarySource)
+          if (isFrequency(data.uiState.generationFrequency)) {
+            setGenerationFrequency(data.uiState.generationFrequency)
+          }
+          if (isBoardSize(data.uiState.boardSize)) {
+            setBoardSize(data.uiState.boardSize)
+            setBoardSizeTouched(true)
+          }
+          if (typeof data.uiState.customOnly === 'boolean') {
+            setCustomOnly(data.uiState.customOnly)
+          }
+          if (isFrequency(data.uiState.customFrequency)) {
+            setCustomFrequency(data.uiState.customFrequency)
+          }
+          if (isFrequency(data.uiState.libraryFrequency)) {
+            setLibraryFrequency(data.uiState.libraryFrequency)
+          }
+          if (isLibrarySource(data.uiState.librarySource)) {
+            setLibrarySource(data.uiState.librarySource)
+          }
         }
         remoteLoadedRef.current = true
         if (!syncingRef.current) setSyncStatus('Connected')
@@ -523,18 +595,26 @@ function App() {
     if (applyingRemoteRef.current) return
     const userId = userIdRef.current
     if (!userId) return
+    const uiStatePayload = isFrequency(generationFrequency) &&
+      isBoardSize(boardSize) &&
+      typeof customOnly === 'boolean' &&
+      isFrequency(customFrequency) &&
+      isFrequency(libraryFrequency) &&
+      isLibrarySource(librarySource)
+      ? serializeUiState({
+          generationFrequency,
+          boardSize,
+          customOnly,
+          customFrequency,
+          libraryFrequency,
+          librarySource,
+        })
+      : null
     const payload: StoredData = {
-      boards,
+      boards: boards.map(serializeBoard),
       currentBoardId,
       customGoals,
-      uiState: {
-        generationFrequency,
-        boardSize,
-        customOnly,
-        customFrequency,
-        libraryFrequency,
-        librarySource,
-      },
+      ...(uiStatePayload ? { uiState: uiStatePayload } : {}),
     }
     setSyncStatus('Syncing...')
     syncingRef.current = true
@@ -697,7 +777,10 @@ function App() {
   // Build a new board from the selected goals and save it to history.
   const handleGenerateBoard = () => {
     setError(null)
-    const totalTiles = boardSize * boardSize
+    const safeSize = isBoardSize(boardSize)
+      ? boardSize
+      : defaultBoardSizeByFrequency[generationFrequency]
+    const totalTiles = safeSize * safeSize
     const shuffledCustom = shuffle(customChecked)
     const trimmedCustom = shuffledCustom.slice(0, totalTiles)
     const selected = [...trimmedCustom]
@@ -711,6 +794,7 @@ function App() {
       text: goal.text,
       frequency: goal.frequency,
       completed: false,
+      sourceGoalId: customGoals.some((custom) => custom.id === goal.id) ? goal.id : undefined,
     }))
     while (goals.length < totalTiles) {
       goals.push({
@@ -718,6 +802,7 @@ function App() {
         text: '',
         frequency: generationFrequency,
         completed: false,
+        sourceGoalId: undefined,
       })
     }
     const newBoard: Board = {
@@ -725,7 +810,7 @@ function App() {
       title: boardTitle.trim() || 'Goal Bingo',
       createdAt: new Date().toISOString(),
       goals,
-      size: boardSize,
+      size: safeSize,
       celebrated: false,
     }
     setBoards((prev) => [newBoard, ...prev])
@@ -752,14 +837,7 @@ function App() {
     if (!board) return
     const target = board.goals.find((goal) => goal.id === goalId)
     if (!target) return
-    const nextText = window.prompt('Edit goal text', target.text)
-    if (!nextText || !nextText.trim()) return
-    updateCurrentBoard((current) => ({
-      ...current,
-      goals: current.goals.map((goal) =>
-        goal.id === goalId ? { ...goal, text: nextText.trim() } : goal
-      ),
-    }))
+    setEditGoalModal({ goalId: target.id, text: target.text })
   }
 
   const handleResetProgress = () => {
@@ -781,6 +859,53 @@ function App() {
     setIsEditingCurrentTitle(false)
   }
 
+  const handleSaveEditedGoal = (mode: 'new' | 'update' | 'skip') => {
+    if (!pendingGoalSave) return
+    if (mode === 'new') {
+      setCustomGoals((prev) => [
+        ...prev,
+        {
+          id: safeRandomId(),
+          text: pendingGoalSave.text,
+          frequency: pendingGoalSave.frequency,
+        },
+      ])
+    }
+    if (mode === 'update' && pendingGoalSave.sourceGoalId) {
+      setCustomGoals((prev) =>
+        prev.map((goal) =>
+          goal.id === pendingGoalSave.sourceGoalId
+            ? { ...goal, text: pendingGoalSave.text }
+            : goal
+        )
+      )
+    }
+    setPendingGoalSave(null)
+  }
+
+  const handleApplyGoalEdit = () => {
+    if (!board || !editGoalModal) return
+    const trimmedText = editGoalModal.text.trim()
+    if (!trimmedText) return
+    const target = board.goals.find((goal) => goal.id === editGoalModal.goalId)
+    if (!target) {
+      setEditGoalModal(null)
+      return
+    }
+    updateCurrentBoard((current) => ({
+      ...current,
+      goals: current.goals.map((goal) =>
+        goal.id === editGoalModal.goalId ? { ...goal, text: trimmedText } : goal
+      ),
+    }))
+    setPendingGoalSave({
+      text: trimmedText,
+      frequency: target.frequency,
+      sourceGoalId: target.sourceGoalId,
+    })
+    setEditGoalModal(null)
+  }
+
   // Create and copy a share link for the current board.
   const handleCopyShareLink = async () => {
     if (!board) return
@@ -788,8 +913,9 @@ function App() {
     let shareLink = ''
     if (isFirebaseConfigured && db) {
       try {
+        const sharedBoard = serializeBoard(board)
         const docRef = await addDoc(collection(db, 'sharedBoards'), {
-          ...board,
+          ...sharedBoard,
           sharedAt: serverTimestamp(),
         })
         url.searchParams.set('share', docRef.id)
@@ -855,6 +981,52 @@ function App() {
           {Array.from({ length: 36 }, (_, index) => (
             <span key={index} className="confetti" />
           ))}
+        </div>
+      )}
+      {pendingGoalSave && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h3>Save to goal library?</h3>
+            <p>Do you want to save this edit to your goal library as well?</p>
+            <div className="modal-actions">
+              <button className="primary" onClick={() => handleSaveEditedGoal('new')}>
+                Yes, as a new goal
+              </button>
+              {pendingGoalSave.sourceGoalId ? (
+                <button className="secondary" onClick={() => handleSaveEditedGoal('update')}>
+                  Yes, update original goal
+                </button>
+              ) : (
+                <p className="muted small-text">No original custom goal to update.</p>
+              )}
+              <button className="ghost" onClick={() => handleSaveEditedGoal('skip')}>
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editGoalModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h3>Edit goal</h3>
+            <p>Update goal text:</p>
+            <input
+              type="text"
+              value={editGoalModal.text}
+              onChange={(event) =>
+                setEditGoalModal((prev) => (prev ? { ...prev, text: event.target.value } : prev))
+              }
+            />
+            <div className="modal-actions">
+              <button className="primary" onClick={handleApplyGoalEdit}>
+                Save edit
+              </button>
+              <button className="ghost" onClick={() => setEditGoalModal(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <header className="hero">
