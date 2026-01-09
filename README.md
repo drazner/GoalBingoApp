@@ -1,14 +1,40 @@
 # Goal Bingo
-Goal Bingo is a mobile-friendly web app that turns goal-setting into a bingo game. You build a custom board, tap to complete goals, and aim for a BINGO (i.e. 5 in a row). The app is built with React + Vite, styled with CSS and persists data in browser storage with free hosting. It's packaged as a PWA so it can be installed to a phone's home screen
+Goal Bingo is a mobile-friendly web app that turns goal-setting into a bingo game. You build a custom board, tap to complete goals, and aim for a BINGO (i.e. 5 in a row). The app is built with React + Vite, styled with CSS and persists data in browser storage with free hosting via Firebase. It's packaged as a PWA so it can be installed to a phone's home screen. The app is currently hosted on GitHub Pages via a Runnable Action 
 
 ## UI from Laptop: 
-<img width="1414" height="767" alt="image" src="https://github.com/user-attachments/assets/79b26d90-9258-4854-948a-f56b9c024650" />
+<img width="1409" height="801" alt="image" src="https://github.com/user-attachments/assets/4f98ec63-2458-4614-8778-9820214a55bf" />
+
 
 ## Stack
 This app uses React, TypeScript, Vite and CSS. It also uses Firebase for the database in order to store anonymous user data
 
+## High‑level App Flow
+
+The UI is a React app that runs entirely in the browser. Users create and edit goals and boards. State is stored locally and optionally synced to Firebase.
+
+The “board” is just a JSON object (goals + completion state). The app renders it as a grid and checks for bingo lines on each update.
+
+### Data
+
+Firebase Firestore stores a single document per user in users/{uid} (boards, current board ID, custom goals, UI selections).
+The app currently uses **anonymous auth** which creates a separate user per device/origin. That’s why laptop and phone don’t share data unless you add a real login.
+Shared links create sharedBoards/{id} documents which can be read by anyone with the link.
+When Firebase is configured, the app signs in anonymously and opens a Firestore realtime listener on your user doc.
+Any local changes are serialized and written to Firestore. Firestore pushes updates back down to the browser. **If Firebase isn’t configured, everything stays local.**
+
+
+### Run/Host
+
+Deployed: GitHub Pages builds the static bundle and serves it over HTTPS. The PWA service worker caches assets for offline use.
+
+
+
+Locally: npm run dev serves the app from your laptop (dev server).
+
+
+
 ## How to Setup
-After pulling the code, you need to follow these steps to run the app: 
+After pulling the code, you need to follow these steps to run the app locally: 
 1. Install Node.js 22
 
    ```
