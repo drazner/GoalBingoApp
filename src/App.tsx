@@ -7,6 +7,9 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   doc,
+  getDoc,
+  addDoc,
+  collection,
   onSnapshot,
   setDoc,
   serverTimestamp,
@@ -45,6 +48,7 @@ type StoredData = {
   boards: Board[]
   currentBoardId: string | null
   customGoals: GoalTemplate[]
+  uiState?: UiState
 }
 
 const LEGACY_STORAGE_KEY = 'bingo-board-v1'
@@ -62,6 +66,16 @@ const defaultBoardSizeByFrequency: Record<Frequency, number> = {
   weekly: 3,
   monthly: 4,
   yearly: 5,
+}
+
+// Remember dropdown selections across sessions.
+type UiState = {
+  generationFrequency: Frequency
+  boardSize: number
+  customOnly: boolean
+  customFrequency: Frequency
+  libraryFrequency: Frequency
+  librarySource: 'suggested' | 'custom' | 'generated'
 }
 
 // Create stable IDs for suggested goals so selections can be tracked.
@@ -272,6 +286,7 @@ function App() {
   const [customGoals, setCustomGoals] = useState<GoalTemplate[]>([])
   const [generationFrequency, setGenerationFrequency] = useState<Frequency>('weekly')
   const [boardSize, setBoardSize] = useState(defaultBoardSizeByFrequency.weekly)
+  const [boardSizeTouched, setBoardSizeTouched] = useState(false)
   const [customOnly, setCustomOnly] = useState(false)
   const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set())
   const [selectedSuggestedIds, setSelectedSuggestedIds] = useState<Set<string>>(new Set())
@@ -358,6 +373,15 @@ function App() {
           setBoards((data.boards ?? []).map(normalizeBoard))
           setCurrentBoardId(data.currentBoardId ?? null)
           setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
+          if (data.uiState) {
+            setGenerationFrequency(data.uiState.generationFrequency)
+            setBoardSize(data.uiState.boardSize)
+            setBoardSizeTouched(true)
+            setCustomOnly(data.uiState.customOnly)
+            setCustomFrequency(data.uiState.customFrequency)
+            setLibraryFrequency(data.uiState.libraryFrequency)
+            setLibrarySource(data.uiState.librarySource)
+          }
         } else if (parsed && typeof parsed === 'object' && 'goals' in parsed) {
           const legacyBoard = normalizeBoard(parsed as Board)
           setBoards([legacyBoard])
@@ -371,8 +395,19 @@ function App() {
     setHasLoaded(true)
 
     const params = new URLSearchParams(window.location.search)
+    const sharedId = params.get('share')
     const encoded = params.get('board')
-    if (encoded) {
+    if (sharedId && isFirebaseConfigured && db) {
+      getDoc(doc(db, 'sharedBoards', sharedId))
+        .then((snapshot) => {
+          if (!snapshot.exists()) return
+          const data = snapshot.data() as Board | undefined
+          if (data?.goals?.length) {
+            setSharedBoard(normalizeBoard(data))
+          }
+        })
+        .catch(() => {})
+    } else if (encoded) {
       const decoded = decodeBoard(encoded)
       if (decoded && decoded.goals?.length) {
         setSharedBoard(normalizeBoard(decoded))
@@ -387,9 +422,28 @@ function App() {
       boards,
       currentBoardId,
       customGoals,
+      uiState: {
+        generationFrequency,
+        boardSize,
+        customOnly,
+        customFrequency,
+        libraryFrequency,
+        librarySource,
+      },
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-  }, [boards, currentBoardId, customGoals, hasLoaded])
+  }, [
+    boards,
+    currentBoardId,
+    customGoals,
+    generationFrequency,
+    boardSize,
+    customOnly,
+    customFrequency,
+    libraryFrequency,
+    librarySource,
+    hasLoaded,
+  ])
 
   // Sign in anonymously and subscribe to cloud data.
   useEffect(() => {
@@ -417,6 +471,15 @@ function App() {
         setBoards((data.boards ?? []).map(normalizeBoard))
         setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
         setCurrentBoardId(data.currentBoardId ?? null)
+        if (data.uiState) {
+          setGenerationFrequency(data.uiState.generationFrequency)
+          setBoardSize(data.uiState.boardSize)
+          setBoardSizeTouched(true)
+          setCustomOnly(data.uiState.customOnly)
+          setCustomFrequency(data.uiState.customFrequency)
+          setLibraryFrequency(data.uiState.libraryFrequency)
+          setLibrarySource(data.uiState.librarySource)
+        }
         remoteLoadedRef.current = true
         if (!syncingRef.current) setSyncStatus('Connected')
         setTimeout(() => {
@@ -442,6 +505,14 @@ function App() {
       boards,
       currentBoardId,
       customGoals,
+      uiState: {
+        generationFrequency,
+        boardSize,
+        customOnly,
+        customFrequency,
+        libraryFrequency,
+        librarySource,
+      },
     }
     setSyncStatus('Syncing...')
     syncingRef.current = true
@@ -454,13 +525,26 @@ function App() {
         setSyncStatus('Sync error')
         syncingRef.current = false
       })
-  }, [boards, currentBoardId, customGoals, hasLoaded])
+  }, [
+    boards,
+    currentBoardId,
+    customGoals,
+    generationFrequency,
+    boardSize,
+    customOnly,
+    customFrequency,
+    libraryFrequency,
+    librarySource,
+    hasLoaded,
+  ])
 
   // Use frequency-based defaults for new boards.
   useEffect(() => {
-    setBoardSize(defaultBoardSizeByFrequency[generationFrequency])
+    if (!boardSizeTouched) {
+      setBoardSize(defaultBoardSizeByFrequency[generationFrequency])
+    }
     setCustomSelectionTouched(false)
-  }, [generationFrequency])
+  }, [generationFrequency, boardSizeTouched])
 
   // Reset the title editor when switching boards.
   useEffect(() => {
@@ -675,8 +759,25 @@ function App() {
   const handleCopyShareLink = async () => {
     if (!board) return
     const url = new URL(window.location.href)
-    url.searchParams.set('board', encodeBoard(board))
-    const shareLink = url.toString()
+    let shareLink = ''
+    if (isFirebaseConfigured && db) {
+      try {
+        const docRef = await addDoc(collection(db, 'sharedBoards'), {
+          ...board,
+          sharedAt: serverTimestamp(),
+        })
+        url.searchParams.set('share', docRef.id)
+        url.searchParams.delete('board')
+        shareLink = url.toString()
+      } catch {
+        shareLink = ''
+      }
+    }
+    if (!shareLink) {
+      url.searchParams.set('board', encodeBoard(board))
+      url.searchParams.delete('share')
+      shareLink = url.toString()
+    }
     setShareUrl(shareLink)
     try {
       await navigator.clipboard.writeText(shareLink)
@@ -811,7 +912,10 @@ function App() {
                 Board size
                 <select
                   value={boardSize}
-                  onChange={(event) => setBoardSize(Number(event.target.value))}
+                  onChange={(event) => {
+                    setBoardSizeTouched(true)
+                    setBoardSize(Number(event.target.value))
+                  }}
                 >
                   <option value={3}>3x3</option>
                   <option value={4}>4x4</option>

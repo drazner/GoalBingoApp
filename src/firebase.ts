@@ -8,6 +8,9 @@ import {
 import {
   enableIndexedDbPersistence,
   getFirestore,
+  getDoc,
+  addDoc,
+  collection,
   onSnapshot,
   doc,
   setDoc,
@@ -36,4 +39,16 @@ if (isFirebaseConfigured) {
   enableIndexedDbPersistence(db).catch(() => {})
 }
 
-export { auth, db, onAuthStateChanged, signInAnonymously, onSnapshot, doc, setDoc, serverTimestamp }
+export {
+  auth,
+  db,
+  onAuthStateChanged,
+  signInAnonymously,
+  onSnapshot,
+  doc,
+  getDoc,
+  addDoc,
+  collection,
+  setDoc,
+  serverTimestamp,
+}
