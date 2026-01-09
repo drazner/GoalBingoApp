@@ -74,6 +74,14 @@
   color: var(--muted);
 }
 
+<<<<<<< HEAD
+=======
+.sync-status {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+>>>>>>> 6f1f789 (Add Firebase sync + PWA updates)
 .hero-badge {
   position: absolute;
   top: 18px;
@@ -336,7 +344,7 @@ button:hover {
 }
 
 .cell.completed {
-  background: #f3f9f7;
+  background: #7ff692;
   border-color: var(--teal);
 }
 

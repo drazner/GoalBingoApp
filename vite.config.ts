@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/GoalBingoApp/',
   plugins: [
     react(),
     VitePWA({
@@ -16,6 +17,8 @@ export default defineConfig({
         theme_color: '#d8754e',
         background_color: '#f4efe8',
         display: 'standalone',
+        start_url: '/GoalBingoApp/',
+        scope: '/GoalBingoApp/',
         icons: [
           {
             src: '/pwa-192x192.png',
