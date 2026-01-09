@@ -725,14 +725,14 @@ function App() {
     <div className="app">
       <header className="hero">
         <div>
-          <p className="eyebrow">Goal-setting bingo</p>
-          <h1>Play your way to momentum.</h1>
+          <p className="eyebrow">GoalBingo</p>
+          <h1>Gamify your goals!</h1>
           <p className="subtitle">
-            Build a board of goals. Tap to complete. Share the board with a link.
+            Build a board of goals | Tap to complete | Share the board with a link
           </p>
         </div>
         <div className="hero-card">
-          <div className="hero-card-header">Your board</div>
+          <div className="hero-card-header">Your Current Board</div>
           <div className="hero-card-title">{board?.title ?? 'No board yet'}</div>
           <div className="hero-card-meta">
             {board
@@ -782,7 +782,7 @@ function App() {
           <section className="panel">
             <div className="panel-header">
               <h2>Create your board</h2>
-              <p>Pick a frequency and mix suggested goals with your own ideas.</p>
+              <p>Pick a frequency and mix suggested goals with your own ideas</p>
             </div>
             <div className="form-grid">
               <label>
@@ -908,7 +908,7 @@ function App() {
           <section className="panel">
             <div className="panel-header">
               <h2>Create your goal</h2>
-              <p>Add a new custom goal to use in your boards.</p>
+              <p>Add a new custom goal to use in your boards</p>
             </div>
             <div className="form-grid">
               <label>
@@ -942,7 +942,7 @@ function App() {
           <section className="panel">
             <div className="panel-header">
               <h2>Goal library</h2>
-              <p>Browse goals by frequency and source.</p>
+              <p>Browse goals by frequency and source</p>
             </div>
             <div className="form-grid">
               <label>
