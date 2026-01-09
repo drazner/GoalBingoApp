@@ -256,23 +256,43 @@ const getBingoLines = (size: number) => {
 }
 
 // Check if any row/column/diagonal is fully completed.
-const hasBingo = (goals: Goal[], size: number) =>
-  getBingoLines(size).some((line) => line.every((index) => goals[index]?.completed))
+const getBingoLine = (goals: Goal[], size: number) => {
+  const lines = getBingoLines(size)
+  for (const line of lines) {
+    if (line.every((index) => goals[index]?.completed)) {
+      return line
+    }
+  }
+  return null
+}
+
+const hasBingo = (goals: Goal[], size: number) => Boolean(getBingoLine(goals, size))
 
 // Play a quick celebration tone when a board gets a Bingo.
 const playCelebrationTone = () => {
   if (typeof window === 'undefined') return
-  const audioContext = new (window.AudioContext || (window as unknown as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-  const oscillator = audioContext.createOscillator()
+  const audioContext = new (window.AudioContext ||
+    (window as unknown as Window & { webkitAudioContext: typeof AudioContext })
+      .webkitAudioContext)()
+  const now = audioContext.currentTime
   const gain = audioContext.createGain()
-  oscillator.type = 'triangle'
-  oscillator.frequency.value = 659
-  gain.gain.value = 0.08
-  oscillator.connect(gain)
+  gain.gain.value = 0.0001
   gain.connect(audioContext.destination)
-  oscillator.start()
-  gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1)
-  oscillator.stop(audioContext.currentTime + 1)
+
+  const playNote = (frequency: number, start: number, duration: number) => {
+    const osc = audioContext.createOscillator()
+    osc.type = 'sine'
+    osc.frequency.value = frequency
+    osc.connect(gain)
+    osc.start(start)
+    osc.stop(start + duration)
+  }
+
+  gain.gain.exponentialRampToValueAtTime(0.22, now + 0.02)
+  playNote(523.25, now, 0.3)
+  playNote(659.25, now + 0.12, 0.3)
+  playNote(783.99, now + 0.24, 0.35)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2)
 }
 
 function App() {
@@ -310,6 +330,8 @@ function App() {
   const applyingRemoteRef = useRef(false)
   const userIdRef = useRef<string | null>(null)
   const syncingRef = useRef(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [bingoLine, setBingoLine] = useState<number[] | null>(null)
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -576,9 +598,12 @@ function App() {
 
   useEffect(() => {
     if (!board) return
-    const bingo = hasBingo(board.goals, getBoardSize(board))
+    const line = getBingoLine(board.goals, getBoardSize(board))
+    const bingo = Boolean(line)
     if (bingo && !board.celebrated) {
       playCelebrationTone()
+      setShowCelebration(true)
+      setTimeout(() => setShowCelebration(false), 2500)
       setBoards((prev) =>
         prev.map((item) =>
           item.id === board.id
@@ -591,6 +616,7 @@ function App() {
       )
     }
     setBingoActive(bingo)
+    setBingoLine(line)
   }, [board])
 
   // Create a new custom goal.
@@ -824,6 +850,13 @@ function App() {
 
   return (
     <div className="app">
+      {showCelebration && (
+        <div className="celebration" aria-hidden="true">
+          {Array.from({ length: 36 }, (_, index) => (
+            <span key={index} className="confetti" />
+          ))}
+        </div>
+      )}
       <header className="hero">
         <div>
           <p className="eyebrow">GoalBingo</p>
@@ -1185,8 +1218,13 @@ function App() {
                 className="grid"
                 style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
               >
-                {board.goals.map((goal, index) => (
-                  <div key={goal.id} className={`cell ${goal.completed ? 'completed' : ''}`}>
+                {board.goals.map((goal, index) => {
+                  const isBingoTile = bingoLine?.includes(index) ?? false
+                  return (
+                    <div
+                      key={goal.id}
+                      className={`cell ${goal.completed ? 'completed' : ''} ${isBingoTile ? 'bingo-glow' : ''}`}
+                    >
                     <button
                       className="cell-button"
                       onClick={() => toggleGoal(goal.id)}
@@ -1203,7 +1241,8 @@ function App() {
                       Edit
                     </button>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </section>
           ) : (
