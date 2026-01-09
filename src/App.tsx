@@ -1,5 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import {
+  auth,
+  db,
+  isFirebaseConfigured,
+  onAuthStateChanged,
+  signInAnonymously,
+  doc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
+} from './firebase'
 
 // Frequency buckets for goals and boards.
 type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -277,6 +288,13 @@ function App() {
   const [hasLoaded, setHasLoaded] = useState(false)
   const [isEditingCurrentTitle, setIsEditingCurrentTitle] = useState(false)
   const [currentTitleDraft, setCurrentTitleDraft] = useState('')
+  const [syncStatus, setSyncStatus] = useState(
+    isFirebaseConfigured ? 'Connecting' : 'Local only'
+  )
+  const remoteLoadedRef = useRef(false)
+  const applyingRemoteRef = useRef(false)
+  const userIdRef = useRef<string | null>(null)
+  const syncingRef = useRef(false)
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -286,6 +304,7 @@ function App() {
   const currentBoardSize = useMemo(() => getBoardSize(board), [board])
   const currentBoardTotal = board ? board.goals.length : 0
 
+  // Goal lists filtered by the currently selected board frequency.
   const customAvailable = useMemo(
     () => customGoals.filter((goal) => goal.frequency === generationFrequency),
     [customGoals, generationFrequency]
@@ -296,6 +315,7 @@ function App() {
     [generationFrequency]
   )
 
+  // What the user has checked in the goal pickers.
   const customChecked = useMemo(
     () => customAvailable.filter((goal) => selectedCustomIds.has(goal.id)),
     [customAvailable, selectedCustomIds]
@@ -306,6 +326,7 @@ function App() {
     [suggestedAvailable, selectedSuggestedIds]
   )
 
+  // Library data shown in the Goals tab.
   const libraryGoals = useMemo(() => {
     if (librarySource === 'custom') return customGoals
     if (librarySource === 'generated') return board ? board.goals : []
@@ -326,7 +347,6 @@ function App() {
   )
 
   // Load saved data and shared links on startup.
-  // Persist data after initial load.
   // Detect Bingo and celebrate once.
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY)
@@ -360,21 +380,101 @@ function App() {
     }
   }, [])
 
+  // Persist data after initial load (localStorage fallback).
+  useEffect(() => {
+    if (!hasLoaded) return
+    const payload: StoredData = {
+      boards,
+      currentBoardId,
+      customGoals,
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+  }, [boards, currentBoardId, customGoals, hasLoaded])
+
+  // Sign in anonymously and subscribe to cloud data.
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth || !db) return
+    const authInstance = auth
+    const dbInstance = db
+    let unsubscribeSnapshot: (() => void) | null = null
+    const unsubscribeAuth = onAuthStateChanged(authInstance, (user) => {
+      if (!user) {
+        setSyncStatus('Connecting')
+        signInAnonymously(authInstance).catch(() => {})
+        return
+      }
+      userIdRef.current = user.uid
+      const userDoc = doc(dbInstance, 'users', user.uid)
+      unsubscribeSnapshot = onSnapshot(userDoc, (snapshot) => {
+        if (!snapshot.exists()) {
+          remoteLoadedRef.current = true
+          if (!syncingRef.current) setSyncStatus('Connected')
+          return
+        }
+        const data = snapshot.data() as Partial<StoredData> | undefined
+        if (!data) return
+        applyingRemoteRef.current = true
+        setBoards((data.boards ?? []).map(normalizeBoard))
+        setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
+        setCurrentBoardId(data.currentBoardId ?? null)
+        remoteLoadedRef.current = true
+        if (!syncingRef.current) setSyncStatus('Connected')
+        setTimeout(() => {
+          applyingRemoteRef.current = false
+        }, 50)
+      })
+    })
+    return () => {
+      if (unsubscribeSnapshot) unsubscribeSnapshot()
+      unsubscribeAuth()
+    }
+  }, [])
+
+  // Sync local changes to Firestore after the first cloud load.
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth || !db) return
+    const dbInstance = db
+    if (!hasLoaded || !remoteLoadedRef.current) return
+    if (applyingRemoteRef.current) return
+    const userId = userIdRef.current
+    if (!userId) return
+    const payload: StoredData = {
+      boards,
+      currentBoardId,
+      customGoals,
+    }
+    setSyncStatus('Syncing...')
+    syncingRef.current = true
+    setDoc(doc(dbInstance, 'users', userId), { ...payload, updatedAt: serverTimestamp() }, { merge: true })
+      .then(() => {
+        setSyncStatus('Synced')
+        syncingRef.current = false
+      })
+      .catch(() => {
+        setSyncStatus('Sync error')
+        syncingRef.current = false
+      })
+  }, [boards, currentBoardId, customGoals, hasLoaded])
+
+  // Use frequency-based defaults for new boards.
   useEffect(() => {
     setBoardSize(defaultBoardSizeByFrequency[generationFrequency])
     setCustomSelectionTouched(false)
   }, [generationFrequency])
 
+  // Reset the title editor when switching boards.
   useEffect(() => {
     setCurrentTitleDraft(board?.title ?? '')
     setIsEditingCurrentTitle(false)
   }, [board?.id])
 
+  // Suggested goals default to all selected for the current frequency.
   useEffect(() => {
     const suggestedIds = suggestedAvailable.map((goal) => goal.id)
     setSelectedSuggestedIds(new Set(suggestedIds))
   }, [generationFrequency, suggestedAvailable])
 
+  // Preserve custom selections if the user already made edits.
   useEffect(() => {
     setSelectedCustomIds((prev) => {
       const availableIds = customAvailable.map((goal) => goal.id)
@@ -389,16 +489,6 @@ function App() {
       return next
     })
   }, [customAvailable, customSelectionTouched])
-
-  useEffect(() => {
-    if (!hasLoaded) return
-    const payload: StoredData = {
-      boards,
-      currentBoardId,
-      customGoals,
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-  }, [boards, currentBoardId, customGoals, hasLoaded])
 
   useEffect(() => {
     if (!board) return
@@ -649,6 +739,7 @@ function App() {
               ? `${board.goals.filter((goal) => goal.completed).length}/${currentBoardTotal} complete`
               : 'Ready to start'}
           </div>
+          <div className="sync-status">Sync status: {syncStatus}</div>
           {bingoActive && <div className="hero-badge">Bingo!</div>}
         </div>
       </header>
