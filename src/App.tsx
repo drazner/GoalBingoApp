@@ -32,6 +32,7 @@ type Goal = {
   frequency: Frequency
   completed: boolean
   sourceGoalId?: string
+  subgoals?: Subgoal[]
 }
 
 // A saved board with its grid size and celebration status.
@@ -53,6 +54,17 @@ type PendingGoalSave = {
 type EditGoalModalState = {
   goalId: string
   text: string
+}
+
+type Subgoal = {
+  id: string
+  text: string
+  done: boolean
+}
+
+type SubgoalModalState = {
+  goalId: string
+  subgoals: Subgoal[]
 }
 
 // Shape of the localStorage payload.
@@ -103,6 +115,7 @@ const serializeGoal = (goal: Goal) => ({
   text: goal.text,
   frequency: goal.frequency,
   completed: goal.completed,
+  ...(goal.subgoals ? { subgoals: goal.subgoals } : {}),
   ...(goal.sourceGoalId ? { sourceGoalId: goal.sourceGoalId } : {}),
 })
 
@@ -123,6 +136,14 @@ const serializeUiState = (state: UiState) => ({
   libraryFrequency: state.libraryFrequency,
   librarySource: state.librarySource,
 })
+
+const getGoalProgress = (goal: Goal) => {
+  if (goal.subgoals && goal.subgoals.length > 0) {
+    const completedCount = goal.subgoals.filter((subgoal) => subgoal.done).length
+    return completedCount / goal.subgoals.length
+  }
+  return goal.completed ? 1 : 0
+}
 
 // Create stable IDs for suggested goals so selections can be tracked.
 const buildSuggestedId = (frequency: Frequency, text: string) =>
@@ -380,6 +401,7 @@ function App() {
   const [bingoLine, setBingoLine] = useState<number[] | null>(null)
   const [pendingGoalSave, setPendingGoalSave] = useState<PendingGoalSave | null>(null)
   const [editGoalModal, setEditGoalModal] = useState<EditGoalModalState | null>(null)
+  const [subgoalModal, setSubgoalModal] = useState<SubgoalModalState | null>(null)
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -827,9 +849,22 @@ function App() {
   const toggleGoal = (goalId: string) => {
     updateCurrentBoard((current) => ({
       ...current,
-      goals: current.goals.map((goal) =>
-        goal.id === goalId ? { ...goal, completed: !goal.completed } : goal
-      ),
+      goals: current.goals.map((goal) => {
+        if (goal.id !== goalId) return goal
+        if (goal.subgoals && goal.subgoals.length > 0) {
+          const shouldComplete = !goal.subgoals.every((subgoal) => subgoal.done)
+          const updatedSubgoals = goal.subgoals.map((subgoal) => ({
+            ...subgoal,
+            done: shouldComplete,
+          }))
+          return {
+            ...goal,
+            subgoals: updatedSubgoals,
+            completed: shouldComplete,
+          }
+        }
+        return { ...goal, completed: !goal.completed }
+      }),
     }))
   }
 
@@ -904,6 +939,92 @@ function App() {
       sourceGoalId: target.sourceGoalId,
     })
     setEditGoalModal(null)
+  }
+
+  const handleOpenSubgoals = () => {
+    if (!board || !editGoalModal) return
+    const target = board.goals.find((goal) => goal.id === editGoalModal.goalId)
+    if (!target) return
+    const existing = target.subgoals ?? []
+    const base = existing.length >= 2 ? existing : [
+      { id: safeRandomId(), text: 'Subgoal 1', done: false },
+      { id: safeRandomId(), text: 'Subgoal 2', done: false },
+    ]
+    setSubgoalModal({
+      goalId: target.id,
+      subgoals: base,
+    })
+    setEditGoalModal(null)
+  }
+
+  const handleUpdateSubgoalText = (id: string, value: string) => {
+    setSubgoalModal((prev) =>
+      prev
+        ? { ...prev, subgoals: prev.subgoals.map((subgoal) => (subgoal.id === id ? { ...subgoal, text: value } : subgoal)) }
+        : prev
+    )
+  }
+
+  const handleToggleSubgoal = (id: string) => {
+    setSubgoalModal((prev) =>
+      prev
+        ? {
+            ...prev,
+            subgoals: prev.subgoals.map((subgoal) =>
+              subgoal.id === id ? { ...subgoal, done: !subgoal.done } : subgoal
+            ),
+          }
+        : prev
+    )
+  }
+
+  const handleAddSubgoal = () => {
+    setSubgoalModal((prev) => {
+      if (!prev) return prev
+      if (prev.subgoals.length >= 24) return prev
+      return {
+        ...prev,
+        subgoals: [
+          ...prev.subgoals,
+          { id: safeRandomId(), text: `Subgoal ${prev.subgoals.length + 1}`, done: false },
+        ],
+      }
+    })
+  }
+
+  const handleDeleteSubgoal = (id: string) => {
+    setSubgoalModal((prev) => {
+      if (!prev) return prev
+      if (prev.subgoals.length <= 2) return prev
+      return {
+        ...prev,
+        subgoals: prev.subgoals.filter((subgoal) => subgoal.id !== id),
+      }
+    })
+  }
+
+  const handleSaveSubgoals = () => {
+    if (!board || !subgoalModal) return
+    const cleaned = subgoalModal.subgoals
+      .map((subgoal) => ({ ...subgoal, text: subgoal.text.trim() }))
+      .filter((subgoal) => subgoal.text)
+    const finalList =
+      cleaned.length >= 2
+        ? cleaned
+        : [
+            { id: safeRandomId(), text: 'Subgoal 1', done: false },
+            { id: safeRandomId(), text: 'Subgoal 2', done: false },
+          ]
+    const allDone = finalList.every((subgoal) => subgoal.done)
+    updateCurrentBoard((current) => ({
+      ...current,
+      goals: current.goals.map((goal) =>
+        goal.id === subgoalModal.goalId
+          ? { ...goal, subgoals: finalList, completed: allDone }
+          : goal
+      ),
+    }))
+    setSubgoalModal(null)
   }
 
   // Create and copy a share link for the current board.
@@ -1022,7 +1143,53 @@ function App() {
               <button className="primary" onClick={handleApplyGoalEdit}>
                 Save edit
               </button>
+              <button className="secondary" onClick={handleOpenSubgoals}>
+                Break down goal
+              </button>
               <button className="ghost" onClick={() => setEditGoalModal(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {subgoalModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal subgoal-modal">
+            <h3>Break down goal</h3>
+            <p>Track subgoals to show partial progress on the tile.</p>
+            <div className="subgoal-list">
+              {subgoalModal.subgoals.map((subgoal, index) => (
+                <div key={subgoal.id} className="subgoal-row">
+                  <input
+                    type="checkbox"
+                    checked={subgoal.done}
+                    onChange={() => handleToggleSubgoal(subgoal.id)}
+                  />
+                  <input
+                    type="text"
+                    value={subgoal.text}
+                    onChange={(event) => handleUpdateSubgoalText(subgoal.id, event.target.value)}
+                    placeholder={`Subgoal ${index + 1}`}
+                  />
+                  <button
+                    className="ghost small"
+                    type="button"
+                    onClick={() => handleDeleteSubgoal(subgoal.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="secondary" type="button" onClick={handleAddSubgoal}>
+                Add subgoal
+              </button>
+              <button className="primary" type="button" onClick={handleSaveSubgoals}>
+                Save checklist
+              </button>
+              <button className="ghost" type="button" onClick={() => setSubgoalModal(null)}>
                 Cancel
               </button>
             </div>
@@ -1392,10 +1559,15 @@ function App() {
               >
                 {board.goals.map((goal, index) => {
                   const isBingoTile = bingoLine?.includes(index) ?? false
+                  const progress = getGoalProgress(goal)
+                  const fillPercent = Math.round(progress * 100)
                   return (
                     <div
                       key={goal.id}
                       className={`cell ${goal.completed ? 'completed' : ''} ${isBingoTile ? 'bingo-glow' : ''}`}
+                      style={{
+                        background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
+                      }}
                     >
                     <button
                       className="cell-button"
