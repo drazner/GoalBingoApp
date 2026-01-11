@@ -1,3 +1,4 @@
+// History tab list with board stats and rename/open actions.
 import type { Board, Frequency } from '../types'
 
 type BoardHistoryProps = {

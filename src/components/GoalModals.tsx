@@ -1,3 +1,4 @@
+// Modal dialogs for editing goals and subgoals.
 import type { EditGoalModalState, PendingGoalSave, SubgoalModalState } from '../types'
 
 type GoalModalsProps = {

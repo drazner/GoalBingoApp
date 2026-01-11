@@ -1,3 +1,4 @@
+// App-wide constants like labels and storage keys.
 import type { Frequency } from './types'
 
 export const LEGACY_STORAGE_KEY = 'bingo-board-v1'

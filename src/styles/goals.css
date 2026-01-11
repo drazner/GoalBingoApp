@@ -1,3 +1,4 @@
+/* Styles for goal checklists and goal library lists. */
 .checklist-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

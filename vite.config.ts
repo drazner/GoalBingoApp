@@ -1,3 +1,4 @@
+// Vite configuration for dev/build and PWA settings.
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'

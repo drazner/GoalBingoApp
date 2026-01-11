@@ -1,3 +1,4 @@
+// Shared TypeScript types for boards, goals, and UI state.
 export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export type GoalTemplate = {

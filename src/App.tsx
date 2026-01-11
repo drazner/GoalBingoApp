@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+// Main app container wiring state, hooks, and UI tabs.
+import { useEffect, useRef, useState } from 'react'
 import './styles/app.css'
 import Hero from './components/Hero'
 import GoalsTab from './components/GoalsTab'
 import CurrentBoard from './components/CurrentBoard'
 import BoardHistory from './components/BoardHistory'
 import GoalModals from './components/GoalModals'
+import useBoardSettings from './hooks/useBoardSettings'
+import useBoardState from './hooks/useBoardState'
+import useGoalLibrary from './hooks/useGoalLibrary'
 import { suggestedGoals } from './data/suggestedGoals'
 import {
   defaultBoardSizeByFrequency,
@@ -200,29 +204,70 @@ const playCelebrationTone = () => {
 
 function App() {
   // Core app state.
-  const [boards, setBoards] = useState<Board[]>([])
-  const [currentBoardId, setCurrentBoardId] = useState<string | null>(null)
   const [sharedBoard, setSharedBoard] = useState<Board | null>(null)
-  const [boardTitle, setBoardTitle] = useState('Goal Bingo')
-  const [customText, setCustomText] = useState('')
-  const [customFrequency, setCustomFrequency] = useState<Frequency>('weekly')
-  const [customGoals, setCustomGoals] = useState<GoalTemplate[]>([])
-  const [generationFrequency, setGenerationFrequency] = useState<Frequency>('weekly')
-  const [boardSize, setBoardSize] = useState(defaultBoardSizeByFrequency.weekly)
-  const [boardSizeTouched, setBoardSizeTouched] = useState(false)
-  const [customOnly, setCustomOnly] = useState(false)
-  const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set())
-  const [selectedSuggestedIds, setSelectedSuggestedIds] = useState<Set<string>>(new Set())
-  const [customSelectionTouched, setCustomSelectionTouched] = useState(false)
-  const [libraryFrequency, setLibraryFrequency] = useState<Frequency>('weekly')
-  const [librarySource, setLibrarySource] = useState<'suggested' | 'custom' | 'generated'>(
-    'suggested'
-  )
+  const {
+    boardTitle,
+    setBoardTitle,
+    generationFrequency,
+    setGenerationFrequency,
+    boardSize,
+    setBoardSize,
+    setBoardSizeTouched,
+    customOnly,
+    setCustomOnly,
+  } = useBoardSettings()
+  const {
+    boards,
+    setBoards,
+    currentBoardId,
+    setCurrentBoardId,
+    titleEdits,
+    setTitleEdits,
+    board,
+    currentBoardSize,
+    currentBoardTotal,
+    updateCurrentBoard,
+    handleOpenBoard,
+    handleSaveTitle,
+  } = useBoardState({ getBoardSize })
+  const {
+    customText,
+    setCustomText,
+    customFrequency,
+    setCustomFrequency,
+    customGoals,
+    setCustomGoals,
+    libraryFrequency,
+    setLibraryFrequency,
+    librarySource,
+    setLibrarySource,
+    selectedCustomIds,
+    selectedSuggestedIds,
+    customAvailable,
+    suggestedAvailable,
+    customChecked,
+    suggestedChecked,
+    filteredLibraryGoals,
+    customLibraryGoals,
+    handleAddCustomGoal,
+    handleEditCustomGoal,
+    handleDeleteCustomGoal,
+    handleToggleCustomSelection,
+    handleToggleSuggestedSelection,
+    handleSelectAllCustom,
+    handleClearCustom,
+    handleSelectAllSuggested,
+    handleClearSuggested,
+  } = useGoalLibrary({
+    generationFrequency,
+    board,
+    suggestedGoals,
+    createId: safeRandomId,
+  })
   const [error, setError] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState('')
   const [bingoActive, setBingoActive] = useState(false)
   const [activeTab, setActiveTab] = useState<'board' | 'goals' | 'history'>('board')
-  const [titleEdits, setTitleEdits] = useState<Record<string, string>>({})
   const [hasLoaded, setHasLoaded] = useState(false)
   const [isEditingCurrentTitle, setIsEditingCurrentTitle] = useState(false)
   const [currentTitleDraft, setCurrentTitleDraft] = useState('')
@@ -240,56 +285,6 @@ function App() {
   const [subgoalModal, setSubgoalModal] = useState<SubgoalModalState | null>(null)
   const [isRearranging, setIsRearranging] = useState(false)
   const [draftGoals, setDraftGoals] = useState<Goal[]>([])
-
-  // Derived state for quick lookups.
-  const board = useMemo(
-    () => boards.find((item) => item.id === currentBoardId) ?? null,
-    [boards, currentBoardId]
-  )
-  const currentBoardSize = useMemo(() => getBoardSize(board), [board])
-  const currentBoardTotal = board ? board.goals.length : 0
-
-  // Goal lists filtered by the currently selected board frequency.
-  const customAvailable = useMemo(
-    () => customGoals.filter((goal) => goal.frequency === generationFrequency),
-    [customGoals, generationFrequency]
-  )
-
-  const suggestedAvailable = useMemo(
-    () => suggestedGoals.filter((goal) => goal.frequency === generationFrequency),
-    [generationFrequency]
-  )
-
-  // What the user has checked in the goal pickers.
-  const customChecked = useMemo(
-    () => customAvailable.filter((goal) => selectedCustomIds.has(goal.id)),
-    [customAvailable, selectedCustomIds]
-  )
-
-  const suggestedChecked = useMemo(
-    () => suggestedAvailable.filter((goal) => selectedSuggestedIds.has(goal.id)),
-    [suggestedAvailable, selectedSuggestedIds]
-  )
-
-  // Library data shown in the Goals tab.
-  const libraryGoals = useMemo(() => {
-    if (librarySource === 'custom') return customGoals
-    if (librarySource === 'generated') return board ? board.goals : []
-    return suggestedGoals
-  }, [librarySource, customGoals, board])
-
-  const filteredLibraryGoals = useMemo(
-    () => libraryGoals.filter((goal) => goal.frequency === libraryFrequency),
-    [libraryGoals, libraryFrequency]
-  )
-
-  const customLibraryGoals = useMemo(
-    () =>
-      customGoals
-        .filter((goal) => goal.frequency === libraryFrequency)
-        .map((goal) => ({ ...goal })),
-    [customGoals, libraryFrequency]
-  )
 
   // Load saved data and shared links on startup.
   // Detect Bingo and celebrate once.
@@ -500,41 +495,11 @@ function App() {
     hasLoaded,
   ])
 
-  // Use frequency-based defaults for new boards.
-  useEffect(() => {
-    if (!boardSizeTouched) {
-      setBoardSize(defaultBoardSizeByFrequency[generationFrequency])
-    }
-    setCustomSelectionTouched(false)
-  }, [generationFrequency, boardSizeTouched])
-
   // Reset the title editor when switching boards.
   useEffect(() => {
     setCurrentTitleDraft(board?.title ?? '')
     setIsEditingCurrentTitle(false)
   }, [board?.id])
-
-  // Suggested goals default to all selected for the current frequency.
-  useEffect(() => {
-    const suggestedIds = suggestedAvailable.map((goal) => goal.id)
-    setSelectedSuggestedIds(new Set(suggestedIds))
-  }, [generationFrequency, suggestedAvailable])
-
-  // Preserve custom selections if the user already made edits.
-  useEffect(() => {
-    setSelectedCustomIds((prev) => {
-      const availableIds = customAvailable.map((goal) => goal.id)
-      if (!customSelectionTouched) {
-        return new Set(availableIds)
-      }
-      const availableSet = new Set(availableIds)
-      const next = new Set<string>()
-      prev.forEach((id) => {
-        if (availableSet.has(id)) next.add(id)
-      })
-      return next
-    })
-  }, [customAvailable, customSelectionTouched])
 
   useEffect(() => {
     if (!board) return
@@ -558,81 +523,6 @@ function App() {
     setBingoActive(bingo)
     setBingoLine(line)
   }, [board])
-
-  // Create a new custom goal.
-  const handleAddCustomGoal = () => {
-    if (!customText.trim()) return
-    setCustomGoals((prev) => [
-      ...prev,
-      {
-        id: safeRandomId(),
-        text: customText.trim(),
-        frequency: customFrequency,
-      },
-    ])
-    setCustomText('')
-  }
-
-  const handleEditCustomGoal = (id: string) => {
-    const target = customGoals.find((goal) => goal.id === id)
-    if (!target) return
-    const nextText = window.prompt('Edit custom goal', target.text)
-    if (!nextText || !nextText.trim()) return
-    setCustomGoals((prev) =>
-      prev.map((goal) => (goal.id === id ? { ...goal, text: nextText.trim() } : goal))
-    )
-  }
-
-  const handleDeleteCustomGoal = (id: string) => {
-    const target = customGoals.find((goal) => goal.id === id)
-    if (!target) return
-    const confirmed = window.confirm('Are you sure you want to delete this goal?')
-    if (!confirmed) return
-    setCustomGoals((prev) => prev.filter((goal) => goal.id !== id))
-  }
-
-  const handleToggleCustomSelection = (id: string) => {
-    setCustomSelectionTouched(true)
-    setSelectedCustomIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }
-
-  const handleToggleSuggestedSelection = (id: string) => {
-    setSelectedSuggestedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }
-
-  const handleSelectAllCustom = () => {
-    setCustomSelectionTouched(true)
-    setSelectedCustomIds(new Set(customAvailable.map((goal) => goal.id)))
-  }
-
-  const handleClearCustom = () => {
-    setCustomSelectionTouched(true)
-    setSelectedCustomIds(new Set())
-  }
-
-  const handleSelectAllSuggested = () => {
-    setSelectedSuggestedIds(new Set(suggestedAvailable.map((goal) => goal.id)))
-  }
-
-  const handleClearSuggested = () => {
-    setSelectedSuggestedIds(new Set())
-  }
 
   // Build a new board from the selected goals and save it to history.
   const handleGenerateBoard = () => {
@@ -677,11 +567,6 @@ function App() {
     setCurrentBoardId(newBoard.id)
     setShareUrl('')
     setActiveTab('board')
-  }
-
-  const updateCurrentBoard = (updater: (current: Board) => Board) => {
-    if (!board) return
-    setBoards((prev) => prev.map((item) => (item.id === board.id ? updater(item) : item)))
   }
 
   const toggleGoal = (goalId: string) => {
@@ -945,21 +830,6 @@ function App() {
     setActiveTab('board')
   }
 
-  const handleOpenBoard = (id: string) => {
-    setCurrentBoardId(id)
-    setActiveTab('board')
-  }
-
-  const handleSaveTitle = (id: string) => {
-    setBoards((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item
-        const nextTitle = (titleEdits[id] ?? item.title).trim()
-        return nextTitle ? { ...item, title: nextTitle } : item
-      })
-    )
-  }
-
   return (
     <div className="app">
       {showCelebration && (
@@ -1124,7 +994,10 @@ function App() {
           onTitleEditChange={(id, value) =>
             setTitleEdits((prev) => ({ ...prev, [id]: value }))
           }
-          onOpenBoard={handleOpenBoard}
+          onOpenBoard={(id) => {
+            handleOpenBoard(id)
+            setActiveTab('board')
+          }}
           onSaveTitle={handleSaveTitle}
           frequencyLabel={frequencyLabel}
           getBoardSize={getBoardSize}

@@ -1,3 +1,4 @@
+/* Board grid and tile styling, including hover states. */
 .board {
   display: grid;
   gap: 20px;

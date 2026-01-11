@@ -1,3 +1,4 @@
+// Firebase initialization and exported auth/firestore helpers.
 import { initializeApp } from 'firebase/app'
 import {
   getAuth,

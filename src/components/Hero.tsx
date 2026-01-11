@@ -1,3 +1,4 @@
+// Header section showing app branding and board summary.
 import type { Board } from '../types'
 
 type HeroProps = {

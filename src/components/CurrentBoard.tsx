@@ -1,3 +1,4 @@
+// Current board UI, progress, and rearranging mode.
 import {
   DndContext,
   PointerSensor,

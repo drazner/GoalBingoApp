@@ -1,3 +1,4 @@
+// Goals tab UI for creating boards and managing goals.
 import type { Frequency, Goal, GoalTemplate } from '../types'
 
 type GoalsTabProps = {

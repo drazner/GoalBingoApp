@@ -1,3 +1,4 @@
+// ESLint configuration for linting rules and tooling.
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

@@ -1,3 +1,4 @@
+// Suggested goal templates grouped by frequency.
 import type { Frequency, GoalTemplate } from '../types'
 
 const buildSuggestedId = (frequency: Frequency, text: string) =>
