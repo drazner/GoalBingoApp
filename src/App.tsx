@@ -1,4 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 import {
   auth,
@@ -65,6 +82,13 @@ type Subgoal = {
 type SubgoalModalState = {
   goalId: string
   subgoals: Subgoal[]
+}
+
+type SortableTileProps = {
+  goal: Goal
+  index: number
+  isBingoTile: boolean
+  fillPercent: number
 }
 
 // Shape of the localStorage payload.
@@ -136,6 +160,33 @@ const serializeUiState = (state: UiState) => ({
   libraryFrequency: state.libraryFrequency,
   librarySource: state.librarySource,
 })
+
+const SortableTile = ({ goal, index, isBingoTile, fillPercent }: SortableTileProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: goal.id,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`cell ${goal.completed ? 'completed' : ''} ${isBingoTile ? 'bingo-glow' : ''} rearranging ${
+        isDragging ? 'dragging' : ''
+      }`}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <button className="cell-button" type="button" aria-pressed={goal.completed}>
+        <span className="cell-index">{index + 1}</span>
+        {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
+      </button>
+    </div>
+  )
+}
 
 const getGoalProgress = (goal: Goal) => {
   if (goal.subgoals && goal.subgoals.length > 0) {
@@ -402,6 +453,14 @@ function App() {
   const [pendingGoalSave, setPendingGoalSave] = useState<PendingGoalSave | null>(null)
   const [editGoalModal, setEditGoalModal] = useState<EditGoalModalState | null>(null)
   const [subgoalModal, setSubgoalModal] = useState<SubgoalModalState | null>(null)
+  const [isRearranging, setIsRearranging] = useState(false)
+  const [draftGoals, setDraftGoals] = useState<Goal[]>([])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -894,6 +953,31 @@ function App() {
     setIsEditingCurrentTitle(false)
   }
 
+  const handleEnterRearrange = () => {
+    if (!board) return
+    setDraftGoals(board.goals.map((goal) => ({ ...goal })))
+    setIsRearranging(true)
+  }
+
+  const handleCancelRearrange = () => {
+    setDraftGoals([])
+    setIsRearranging(false)
+  }
+
+  const handleSaveRearrange = () => {
+    if (!board) return
+    updateCurrentBoard((current) => ({
+      ...current,
+      goals: draftGoals.map((goal) => ({ ...goal })),
+    }))
+    setDraftGoals([])
+    setIsRearranging(false)
+  }
+
+  const handleRearrangeRandomize = () => {
+    setDraftGoals((prev) => shuffle(prev))
+  }
+
   const handleSaveEditedGoal = (mode: 'new' | 'update' | 'skip') => {
     if (!pendingGoalSave) return
     if (mode === 'new') {
@@ -1076,13 +1160,6 @@ function App() {
   const handleOpenBoard = (id: string) => {
     setCurrentBoardId(id)
     setActiveTab('board')
-  }
-
-  const handleRandomizeBoard = () => {
-    updateCurrentBoard((current) => ({
-      ...current,
-      goals: shuffle(current.goals),
-    }))
   }
 
   const handleSaveTitle = (id: string) => {
@@ -1536,15 +1613,31 @@ function App() {
                   <p>Tap goals to mark them complete. Get five in a row for Bingo.</p>
                 </div>
                 <div className="board-actions">
-                  <button className="ghost" onClick={handleResetProgress}>
-                    Reset progress
-                  </button>
-                  <button className="ghost" onClick={handleRandomizeBoard}>
-                    Randomize
-                  </button>
-                  <button className="primary" onClick={handleCopyShareLink}>
-                    Share board
-                  </button>
+                  {isRearranging ? (
+                    <>
+                      <button className="ghost" onClick={handleRearrangeRandomize}>
+                        Randomize
+                      </button>
+                      <button className="secondary" onClick={handleSaveRearrange}>
+                        Save
+                      </button>
+                      <button className="ghost" onClick={handleCancelRearrange}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="ghost" onClick={handleResetProgress}>
+                        Reset progress
+                      </button>
+                      <button className="ghost" onClick={handleEnterRearrange}>
+                        Rearrange
+                      </button>
+                      <button className="primary" onClick={handleCopyShareLink}>
+                        Share board
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               {shareUrl && (
@@ -1553,41 +1646,84 @@ function App() {
                   <span>Link copied if clipboard is allowed.</span>
                 </div>
               )}
-              <div
-                className="grid"
-                style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
-              >
-                {board.goals.map((goal, index) => {
-                  const isBingoTile = bingoLine?.includes(index) ?? false
-                  const progress = getGoalProgress(goal)
-                  const fillPercent = Math.round(progress * 100)
-                  return (
+              {isRearranging ? (
+                <DndContext
+                  collisionDetection={closestCenter}
+                  sensors={sensors}
+                  onDragEnd={({ active, over }) => {
+                    if (!over || active.id === over.id) return
+                    setDraftGoals((prev) => {
+                      const oldIndex = prev.findIndex((goal) => goal.id === active.id)
+                      const newIndex = prev.findIndex((goal) => goal.id === over.id)
+                      if (oldIndex === -1 || newIndex === -1) return prev
+                      return arrayMove(prev, oldIndex, newIndex)
+                    })
+                  }}
+                >
+                  <SortableContext
+                    items={draftGoals.map((goal) => goal.id)}
+                    strategy={rectSortingStrategy}
+                  >
                     <div
-                      key={goal.id}
-                      className={`cell ${goal.completed ? 'completed' : ''} ${isBingoTile ? 'bingo-glow' : ''}`}
-                      style={{
-                        background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
-                      }}
+                      className="grid"
+                      style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
                     >
-                    <button
-                      className="cell-button"
-                      onClick={() => toggleGoal(goal.id)}
-                      aria-pressed={goal.completed}
-                    >
-                      <span className="cell-index">{index + 1}</span>
-                      {goal.text ? (
-                        <span className="cell-text">{goal.text}</span>
-                      ) : (
-                        <span className="cell-placeholder">Empty tile</span>
-                      )}
-                    </button>
-                    <button className="edit-button" onClick={() => handleEditGoal(goal.id)}>
-                      Edit
-                    </button>
-                  </div>
-                  )
-                })}
-              </div>
+                      {draftGoals.map((goal, index) => {
+                        const isBingoTile = bingoLine?.includes(index) ?? false
+                        const progress = getGoalProgress(goal)
+                        const fillPercent = Math.round(progress * 100)
+                        return (
+                          <SortableTile
+                            key={goal.id}
+                            goal={goal}
+                            index={index}
+                            isBingoTile={isBingoTile}
+                            fillPercent={fillPercent}
+                          />
+                        )
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                <div
+                  className="grid"
+                  style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
+                >
+                  {board.goals.map((goal, index) => {
+                    const isBingoTile = bingoLine?.includes(index) ?? false
+                    const progress = getGoalProgress(goal)
+                    const fillPercent = Math.round(progress * 100)
+                    return (
+                      <div
+                        key={goal.id}
+                        className={`cell ${goal.completed ? 'completed' : ''} ${
+                          isBingoTile ? 'bingo-glow' : ''
+                        }`}
+                        style={{
+                          background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
+                        }}
+                      >
+                        <button
+                          className="cell-button"
+                          onClick={() => toggleGoal(goal.id)}
+                          aria-pressed={goal.completed}
+                        >
+                          <span className="cell-index">{index + 1}</span>
+                          {goal.text ? (
+                            <span className="cell-text">{goal.text}</span>
+                          ) : (
+                            <span className="cell-placeholder">Empty tile</span>
+                          )}
+                        </button>
+                        <button className="edit-button" onClick={() => handleEditGoal(goal.id)}>
+                          Edit
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           ) : (
             <section className="panel">
