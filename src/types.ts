@@ -1,0 +1,56 @@
+export type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
+
+export type GoalTemplate = {
+  id: string
+  text: string
+  frequency: Frequency
+}
+
+export type Subgoal = {
+  id: string
+  text: string
+  done: boolean
+}
+
+export type Goal = {
+  id: string
+  text: string
+  frequency: Frequency
+  completed: boolean
+  sourceGoalId?: string
+  subgoals?: Subgoal[]
+}
+
+export type Board = {
+  id: string
+  title: string
+  createdAt: string
+  goals: Goal[]
+  size: number
+  celebrated: boolean
+}
+
+export type PendingGoalSave = {
+  text: string
+  frequency: Frequency
+  sourceGoalId?: string
+}
+
+export type EditGoalModalState = {
+  goalId: string
+  text: string
+}
+
+export type SubgoalModalState = {
+  goalId: string
+  subgoals: Subgoal[]
+}
+
+export type UiState = {
+  generationFrequency: Frequency
+  boardSize: number
+  customOnly: boolean
+  customFrequency: Frequency
+  libraryFrequency: Frequency
+  librarySource: 'suggested' | 'custom' | 'generated'
+}

@@ -1,0 +1,27 @@
+.history-list {
+  display: grid;
+  gap: 16px;
+}
+
+.history-card {
+  background: #faf6f0;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.history-meta {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.history-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

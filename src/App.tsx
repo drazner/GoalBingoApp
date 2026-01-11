@@ -1,22 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import './styles/app.css'
+import Hero from './components/Hero'
+import GoalsTab from './components/GoalsTab'
+import CurrentBoard from './components/CurrentBoard'
+import BoardHistory from './components/BoardHistory'
+import GoalModals from './components/GoalModals'
+import { suggestedGoals } from './data/suggestedGoals'
 import {
-  DndContext,
-  PointerSensor,
-  TouchSensor,
-  KeyboardSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import './App.css'
+  defaultBoardSizeByFrequency,
+  frequencyLabel,
+  LEGACY_STORAGE_KEY,
+  STORAGE_KEY,
+} from './constants'
+import type {
+  Board,
+  EditGoalModalState,
+  Frequency,
+  Goal,
+  GoalTemplate,
+  PendingGoalSave,
+  SubgoalModalState,
+  UiState,
+} from './types'
 import {
   auth,
   db,
@@ -31,99 +36,11 @@ import {
   setDoc,
   serverTimestamp,
 } from './firebase'
-
-// Frequency buckets for goals and boards.
-type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly'
-
-// A reusable goal definition before it becomes a board tile.
-type GoalTemplate = {
-  id: string
-  text: string
-  frequency: Frequency
-}
-
-// A goal as it appears on a board (with completion state).
-type Goal = {
-  id: string
-  text: string
-  frequency: Frequency
-  completed: boolean
-  sourceGoalId?: string
-  subgoals?: Subgoal[]
-}
-
-// A saved board with its grid size and celebration status.
-type Board = {
-  id: string
-  title: string
-  createdAt: string
-  goals: Goal[]
-  size: number
-  celebrated: boolean
-}
-
-type PendingGoalSave = {
-  text: string
-  frequency: Frequency
-  sourceGoalId?: string
-}
-
-type EditGoalModalState = {
-  goalId: string
-  text: string
-}
-
-type Subgoal = {
-  id: string
-  text: string
-  done: boolean
-}
-
-type SubgoalModalState = {
-  goalId: string
-  subgoals: Subgoal[]
-}
-
-type SortableTileProps = {
-  goal: Goal
-  index: number
-  isBingoTile: boolean
-  fillPercent: number
-}
-
-// Shape of the localStorage payload.
 type StoredData = {
   boards: Board[]
   currentBoardId: string | null
   customGoals: GoalTemplate[]
   uiState?: UiState
-}
-
-const LEGACY_STORAGE_KEY = 'bingo-board-v1'
-const STORAGE_KEY = 'bingo-board-v2'
-
-const frequencyLabel: Record<Frequency, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-  yearly: 'Yearly',
-}
-
-const defaultBoardSizeByFrequency: Record<Frequency, number> = {
-  daily: 3,
-  weekly: 3,
-  monthly: 4,
-  yearly: 5,
-}
-
-// Remember dropdown selections across sessions.
-type UiState = {
-  generationFrequency: Frequency
-  boardSize: number
-  customOnly: boolean
-  customFrequency: Frequency
-  libraryFrequency: Frequency
-  librarySource: 'suggested' | 'custom' | 'generated'
 }
 
 const isFrequency = (value: unknown): value is Frequency =>
@@ -161,32 +78,6 @@ const serializeUiState = (state: UiState) => ({
   librarySource: state.librarySource,
 })
 
-const SortableTile = ({ goal, index, isBingoTile, fillPercent }: SortableTileProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: goal.id,
-  })
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`cell ${goal.completed ? 'completed' : ''} ${isBingoTile ? 'bingo-glow' : ''} rearranging ${
-        isDragging ? 'dragging' : ''
-      }`}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
-      }}
-      {...attributes}
-      {...listeners}
-    >
-      <button className="cell-button" type="button" aria-pressed={goal.completed}>
-        <span className="cell-index">{index + 1}</span>
-        {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
-      </button>
-    </div>
-  )
-}
 
 const getGoalProgress = (goal: Goal) => {
   if (goal.subgoals && goal.subgoals.length > 0) {
@@ -196,119 +87,6 @@ const getGoalProgress = (goal: Goal) => {
   return goal.completed ? 1 : 0
 }
 
-// Create stable IDs for suggested goals so selections can be tracked.
-const buildSuggestedId = (frequency: Frequency, text: string) =>
-  `suggested-${frequency}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)}`
-
-// Built-in goal ideas (no IDs yet).
-const suggestedGoalTemplates: Omit<GoalTemplate, 'id'>[] = [
-  { text: 'Drink 8 glasses of water', frequency: 'daily' },
-  { text: 'Walk 6,000 steps', frequency: 'daily' },
-  { text: 'Read for 20 minutes', frequency: 'daily' },
-  { text: 'Stretch for 10 minutes', frequency: 'daily' },
-  { text: 'Journal one gratitude', frequency: 'daily' },
-  { text: 'Plan tomorrow in 5 minutes', frequency: 'daily' },
-  { text: 'Cook a balanced meal', frequency: 'daily' },
-  { text: 'Meditate for 5 minutes', frequency: 'daily' },
-  { text: 'Do a 5-minute tidy', frequency: 'daily' },
-  { text: 'Take a screen-free break', frequency: 'daily' },
-  { text: 'Step outside for fresh air', frequency: 'daily' },
-  { text: 'Write one priority for today', frequency: 'daily' },
-  { text: 'Eat one extra serving of veggies', frequency: 'daily' },
-  { text: 'Send one kind message', frequency: 'daily' },
-  { text: 'Listen to a favorite song', frequency: 'daily' },
-  { text: 'Practice posture check', frequency: 'daily' },
-  { text: 'Drink a cup of herbal tea', frequency: 'daily' },
-  { text: 'Do a short breathing exercise', frequency: 'daily' },
-  { text: 'Review today’s schedule', frequency: 'daily' },
-  { text: 'Set a 10-minute focus timer', frequency: 'daily' },
-  { text: 'Celebrate one small win', frequency: 'daily' },
-  { text: 'Tidy your workspace', frequency: 'daily' },
-  { text: 'Read one page of a book', frequency: 'daily' },
-  { text: 'Write down one idea', frequency: 'daily' },
-  { text: 'End the day with a quick recap', frequency: 'daily' },
-  { text: 'Inbox to zero (work or personal)', frequency: 'weekly' },
-  { text: 'Declutter one small area', frequency: 'weekly' },
-  { text: 'Try a new recipe', frequency: 'weekly' },
-  { text: 'Call a friend or family member', frequency: 'weekly' },
-  { text: 'Do one longer workout', frequency: 'weekly' },
-  { text: 'Review your budget', frequency: 'weekly' },
-  { text: 'Plan your week in advance', frequency: 'weekly' },
-  { text: 'Batch cook one meal', frequency: 'weekly' },
-  { text: 'Do a full grocery restock', frequency: 'weekly' },
-  { text: 'Organize your calendar', frequency: 'weekly' },
-  { text: 'Do laundry start-to-finish', frequency: 'weekly' },
-  { text: 'Clean out your inbox', frequency: 'weekly' },
-  { text: 'Take a long walk outside', frequency: 'weekly' },
-  { text: 'Try a new workout class', frequency: 'weekly' },
-  { text: 'Reflect on weekly wins', frequency: 'weekly' },
-  { text: 'Plan one social meetup', frequency: 'weekly' },
-  { text: 'Update your to-do list', frequency: 'weekly' },
-  { text: 'Do a tech-free evening', frequency: 'weekly' },
-  { text: 'Sort one drawer or shelf', frequency: 'weekly' },
-  { text: 'Water plants', frequency: 'weekly' },
-  { text: 'Review upcoming deadlines', frequency: 'weekly' },
-  { text: 'Do a personal finance check-in', frequency: 'weekly' },
-  { text: 'Prep outfits for the week', frequency: 'weekly' },
-  { text: 'Make a weekly highlight note', frequency: 'weekly' },
-  { text: 'Plan a weekend activity', frequency: 'weekly' },
-  { text: 'Donate or give back in a small way', frequency: 'monthly' },
-  { text: 'Update resume or portfolio', frequency: 'monthly' },
-  { text: 'Organize digital files', frequency: 'monthly' },
-  { text: 'Learn a new skill for 30 minutes', frequency: 'monthly' },
-  { text: 'Schedule a self-care day', frequency: 'monthly' },
-  { text: 'Write down 3 big wins', frequency: 'monthly' },
-  { text: 'Plan a mini adventure', frequency: 'monthly' },
-  { text: 'Review subscriptions', frequency: 'monthly' },
-  { text: 'Deep clean one room', frequency: 'monthly' },
-  { text: 'Plan next month goals', frequency: 'monthly' },
-  { text: 'Back up your photos', frequency: 'monthly' },
-  { text: 'Do a closet reset', frequency: 'monthly' },
-  { text: 'Review recurring bills', frequency: 'monthly' },
-  { text: 'Try a new hobby session', frequency: 'monthly' },
-  { text: 'Schedule a catch-up brunch', frequency: 'monthly' },
-  { text: 'Reassess your routines', frequency: 'monthly' },
-  { text: 'Plan one community event', frequency: 'monthly' },
-  { text: 'Refresh your playlists', frequency: 'monthly' },
-  { text: 'Do a digital detox half-day', frequency: 'monthly' },
-  { text: 'Audit your goals list', frequency: 'monthly' },
-  { text: 'Replace one household supply', frequency: 'monthly' },
-  { text: 'Create a mini reward plan', frequency: 'monthly' },
-  { text: 'Log progress toward big goal', frequency: 'monthly' },
-  { text: 'Plan next month finances', frequency: 'monthly' },
-  { text: 'Create a vision board', frequency: 'monthly' },
-  { text: 'Set a yearly theme word', frequency: 'yearly' },
-  { text: 'Create a vision board', frequency: 'yearly' },
-  { text: 'Review annual goals and reset', frequency: 'yearly' },
-  { text: 'Take a class or workshop', frequency: 'yearly' },
-  { text: 'Plan a meaningful trip', frequency: 'yearly' },
-  { text: 'Give yourself a digital detox day', frequency: 'yearly' },
-  { text: 'Write a letter to your future self', frequency: 'yearly' },
-  { text: 'Set a career milestone', frequency: 'yearly' },
-  { text: 'Plan a health checkup', frequency: 'yearly' },
-  { text: 'Volunteer for a cause', frequency: 'yearly' },
-  { text: 'Update long-term financial goals', frequency: 'yearly' },
-  { text: 'Create a learning roadmap', frequency: 'yearly' },
-  { text: 'Take a weekend getaway', frequency: 'yearly' },
-  { text: 'Review and refresh relationships', frequency: 'yearly' },
-  { text: 'Do a home inventory', frequency: 'yearly' },
-  { text: 'Plan a passion project', frequency: 'yearly' },
-  { text: 'Set a reading list for the year', frequency: 'yearly' },
-  { text: 'Create a wellness plan', frequency: 'yearly' },
-  { text: 'Host a yearly celebration', frequency: 'yearly' },
-  { text: 'Reflect on your growth', frequency: 'yearly' },
-  { text: 'Audit your digital security', frequency: 'yearly' },
-  { text: 'Set a giving goal', frequency: 'yearly' },
-  { text: 'Write a personal mission statement', frequency: 'yearly' },
-  { text: 'Choose a yearly creative theme', frequency: 'yearly' },
-  { text: 'Review and archive memories', frequency: 'yearly' },
-]
-
-// Add stable IDs for suggested goals so they can be selected/filtered.
-const suggestedGoals: GoalTemplate[] = suggestedGoalTemplates.map((goal) => ({
-  ...goal,
-  id: buildSuggestedId(goal.frequency, goal.text),
-}))
 
 // Utility to generate IDs in browsers without crypto.randomUUID.
 const safeRandomId = () =>
@@ -324,6 +102,13 @@ const shuffle = <T,>(items: T[]) => {
     ;[clone[i], clone[j]] = [clone[j], clone[i]]
   }
   return clone
+}
+
+const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+  const next = [...items]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
 }
 
 // Turn a board into a shareable URL-safe payload.
@@ -455,12 +240,6 @@ function App() {
   const [subgoalModal, setSubgoalModal] = useState<SubgoalModalState | null>(null)
   const [isRearranging, setIsRearranging] = useState(false)
   const [draftGoals, setDraftGoals] = useState<Goal[]>([])
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
 
   // Derived state for quick lookups.
   const board = useMemo(
@@ -978,6 +757,15 @@ function App() {
     setDraftGoals((prev) => shuffle(prev))
   }
 
+  const handleReorder = (activeId: string, overId: string) => {
+    setDraftGoals((prev) => {
+      const oldIndex = prev.findIndex((goal) => goal.id === activeId)
+      const newIndex = prev.findIndex((goal) => goal.id === overId)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      return moveItem(prev, oldIndex, newIndex)
+    })
+  }
+
   const handleSaveEditedGoal = (mode: 'new' | 'update' | 'skip') => {
     if (!pendingGoalSave) return
     if (mode === 'new') {
@@ -1181,118 +969,31 @@ function App() {
           ))}
         </div>
       )}
-      {pendingGoalSave && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
-            <h3>Save to goal library?</h3>
-            <p>Do you want to save this edit to your goal library as well?</p>
-            <div className="modal-actions">
-              <button className="primary" onClick={() => handleSaveEditedGoal('new')}>
-                Yes, as a new goal
-              </button>
-              {pendingGoalSave.sourceGoalId ? (
-                <button className="secondary" onClick={() => handleSaveEditedGoal('update')}>
-                  Yes, update original goal
-                </button>
-              ) : (
-                <p className="muted small-text">No original custom goal to update.</p>
-              )}
-              <button className="ghost" onClick={() => handleSaveEditedGoal('skip')}>
-                No
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {editGoalModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
-            <h3>Edit goal</h3>
-            <p>Update goal text:</p>
-            <input
-              type="text"
-              value={editGoalModal.text}
-              onChange={(event) =>
-                setEditGoalModal((prev) => (prev ? { ...prev, text: event.target.value } : prev))
-              }
-            />
-            <div className="modal-actions">
-              <button className="primary" onClick={handleApplyGoalEdit}>
-                Save edit
-              </button>
-              <button className="secondary" onClick={handleOpenSubgoals}>
-                Break down goal
-              </button>
-              <button className="ghost" onClick={() => setEditGoalModal(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {subgoalModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal subgoal-modal">
-            <h3>Break down goal</h3>
-            <p>Track subgoals to show partial progress on the tile.</p>
-            <div className="subgoal-list">
-              {subgoalModal.subgoals.map((subgoal, index) => (
-                <div key={subgoal.id} className="subgoal-row">
-                  <input
-                    type="checkbox"
-                    checked={subgoal.done}
-                    onChange={() => handleToggleSubgoal(subgoal.id)}
-                  />
-                  <input
-                    type="text"
-                    value={subgoal.text}
-                    onChange={(event) => handleUpdateSubgoalText(subgoal.id, event.target.value)}
-                    placeholder={`Subgoal ${index + 1}`}
-                  />
-                  <button
-                    className="ghost small"
-                    type="button"
-                    onClick={() => handleDeleteSubgoal(subgoal.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button className="secondary" type="button" onClick={handleAddSubgoal}>
-                Add subgoal
-              </button>
-              <button className="primary" type="button" onClick={handleSaveSubgoals}>
-                Save checklist
-              </button>
-              <button className="ghost" type="button" onClick={() => setSubgoalModal(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <header className="hero">
-        <div>
-          <p className="eyebrow">GoalBingo</p>
-          <h1>Gamify your goals!</h1>
-          <p className="subtitle">
-            Build a board of goals | Tap to complete | Share the board with a link
-          </p>
-        </div>
-        <div className="hero-card">
-          <div className="hero-card-header">Your Current Board</div>
-          <div className="hero-card-title">{board?.title ?? 'No board yet'}</div>
-          <div className="hero-card-meta">
-            {board
-              ? `${board.goals.filter((goal) => goal.completed).length}/${currentBoardTotal} complete`
-              : 'Ready to start'}
-          </div>
-          <div className="sync-status">Sync status: {syncStatus}</div>
-          {bingoActive && <div className="hero-badge">Bingo!</div>}
-        </div>
-      </header>
+      <GoalModals
+        pendingGoalSave={pendingGoalSave}
+        editGoalModal={editGoalModal}
+        subgoalModal={subgoalModal}
+        onSaveEditedGoal={handleSaveEditedGoal}
+        onEditGoalChange={(value) =>
+          setEditGoalModal((prev) => (prev ? { ...prev, text: value } : prev))
+        }
+        onApplyGoalEdit={handleApplyGoalEdit}
+        onCancelGoalEdit={() => setEditGoalModal(null)}
+        onOpenSubgoals={handleOpenSubgoals}
+        onToggleSubgoal={handleToggleSubgoal}
+        onUpdateSubgoalText={handleUpdateSubgoalText}
+        onDeleteSubgoal={handleDeleteSubgoal}
+        onAddSubgoal={handleAddSubgoal}
+        onSaveSubgoals={handleSaveSubgoals}
+        onCancelSubgoals={() => setSubgoalModal(null)}
+      />
+      <Hero
+        board={board}
+        completedCount={board ? board.goals.filter((goal) => goal.completed).length : 0}
+        totalCount={currentBoardTotal}
+        bingoActive={bingoActive}
+        syncStatus={syncStatus}
+      />
 
       <div className="tabs">
         <button
@@ -1328,403 +1029,80 @@ function App() {
       )}
 
       {activeTab === 'goals' && (
-        <>
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Create your board</h2>
-              <p>Pick a frequency and mix suggested goals with your own ideas</p>
-            </div>
-            <div className="form-grid">
-              <label>
-                Board title
-                <input
-                  type="text"
-                  value={boardTitle}
-                  onChange={(event) => setBoardTitle(event.target.value)}
-                  placeholder="Goal Bingo"
-                />
-              </label>
-              <label>
-                Board frequency
-                <select
-                  value={generationFrequency}
-                  onChange={(event) => setGenerationFrequency(event.target.value as Frequency)}
-                >
-                  {Object.entries(frequencyLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Board size
-                <select
-                  value={boardSize}
-                  onChange={(event) => {
-                    setBoardSizeTouched(true)
-                    setBoardSize(Number(event.target.value))
-                  }}
-                >
-                  <option value={3}>3x3</option>
-                  <option value={4}>4x4</option>
-                  <option value={5}>5x5</option>
-                </select>
-              </label>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={customOnly}
-                  onChange={(event) => setCustomOnly(event.target.checked)}
-                />
-                Custom goals only
-              </label>
-            </div>
-            <div className="checklist-row">
-              <details className="checklist">
-                <summary>
-                  Custom goals ({customChecked.length}/{customAvailable.length})
-                </summary>
-                <div className="checklist-controls">
-                  <button className="ghost small" type="button" onClick={handleSelectAllCustom}>
-                    Select all
-                  </button>
-                  <button className="ghost small" type="button" onClick={handleClearCustom}>
-                    Clear
-                  </button>
-                </div>
-                <div className="checklist-items">
-                  {customAvailable.length === 0 ? (
-                    <p className="muted">No custom goals for this frequency yet.</p>
-                  ) : (
-                    customAvailable.map((goal) => (
-                      <label key={goal.id} className="check-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedCustomIds.has(goal.id)}
-                          onChange={() => handleToggleCustomSelection(goal.id)}
-                        />
-                        <span>{goal.text}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </details>
-              <details className="checklist">
-                <summary>
-                  Suggested goals ({suggestedChecked.length}/{suggestedAvailable.length})
-                </summary>
-                <div className="checklist-controls">
-                  <button className="ghost small" type="button" onClick={handleSelectAllSuggested}>
-                    Select all
-                  </button>
-                  <button className="ghost small" type="button" onClick={handleClearSuggested}>
-                    Clear
-                  </button>
-                </div>
-                <div className="checklist-items">
-                  {suggestedAvailable.length === 0 ? (
-                    <p className="muted">No suggested goals for this frequency yet.</p>
-                  ) : (
-                    suggestedAvailable.map((goal) => (
-                      <label key={goal.id} className="check-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedSuggestedIds.has(goal.id)}
-                          onChange={() => handleToggleSuggestedSelection(goal.id)}
-                        />
-                        <span>{goal.text}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </details>
-            </div>
-            <div className="form-footer">
-              <div>
-                <span className="pill">Suggested: {suggestedGoals.length}</span>
-                <span className="pill">Custom: {customGoals.length}</span>
-                <span className="pill">
-                  Custom {frequencyLabel[generationFrequency]}: {customAvailable.length}
-                </span>
-                <span className="pill">
-                  Suggested {frequencyLabel[generationFrequency]}: {suggestedAvailable.length}
-                </span>
-              </div>
-              <button className="primary" type="button" onClick={handleGenerateBoard}>
-                Generate {boardSize}x{boardSize} board
-              </button>
-            </div>
-            {error && <p className="error">{error}</p>}
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Create your goal</h2>
-              <p>Add a new custom goal to use in your boards</p>
-            </div>
-            <div className="form-grid">
-              <label>
-                Custom goal
-                <input
-                  type="text"
-                  value={customText}
-                  onChange={(event) => setCustomText(event.target.value)}
-                  placeholder="Run 3 miles"
-                />
-              </label>
-              <label>
-                Frequency
-                <select
-                  value={customFrequency}
-                  onChange={(event) => setCustomFrequency(event.target.value as Frequency)}
-                >
-                  {Object.entries(frequencyLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="secondary" type="button" onClick={handleAddCustomGoal}>
-                Add custom goal
-              </button>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <h2>Goal library</h2>
-              <p>Browse goals by frequency and source</p>
-            </div>
-            <div className="form-grid">
-              <label>
-                Frequency
-                <select
-                  value={libraryFrequency}
-                  onChange={(event) => setLibraryFrequency(event.target.value as Frequency)}
-                >
-                  {Object.entries(frequencyLabel).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Source
-                <select
-                  value={librarySource}
-                  onChange={(event) =>
-                    setLibrarySource(event.target.value as 'suggested' | 'custom' | 'generated')
-                  }
-                >
-                  <option value="suggested">Suggested goals</option>
-                  <option value="custom">Custom goals</option>
-                  <option value="generated">Generated board goals</option>
-                </select>
-              </label>
-            </div>
-            <div className="goal-list">
-              {librarySource === 'custom' ? (
-                customLibraryGoals.length === 0 ? (
-                  <p className="muted">No goals found for this filter yet.</p>
-                ) : (
-                  customLibraryGoals.map((goal) => (
-                    <div key={goal.id} className="goal-list-item">
-                      <span>{goal.text}</span>
-                      <div className="goal-actions">
-                        <span className="goal-chip">{frequencyLabel[goal.frequency]}</span>
-                        <button
-                          className="ghost small"
-                          type="button"
-                          onClick={() => handleEditCustomGoal(goal.id)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="ghost small danger"
-                          type="button"
-                          onClick={() => handleDeleteCustomGoal(goal.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )
-              ) : filteredLibraryGoals.length === 0 ? (
-                <p className="muted">No goals found for this filter yet.</p>
-              ) : (
-                filteredLibraryGoals.map((goal, index) => (
-                  <div key={goal.id ?? `${goal.text}-${index}`} className="goal-list-item">
-                    <span>{goal.text}</span>
-                    <span className="goal-chip">{frequencyLabel[goal.frequency]}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </>
+        <GoalsTab
+          boardTitle={boardTitle}
+          onBoardTitleChange={setBoardTitle}
+          generationFrequency={generationFrequency}
+          onGenerationFrequencyChange={setGenerationFrequency}
+          boardSize={boardSize}
+          onBoardSizeChange={(value) => {
+            setBoardSizeTouched(true)
+            setBoardSize(value)
+          }}
+          customOnly={customOnly}
+          onCustomOnlyChange={setCustomOnly}
+          customText={customText}
+          onCustomTextChange={setCustomText}
+          customFrequency={customFrequency}
+          onCustomFrequencyChange={setCustomFrequency}
+          onAddCustomGoal={handleAddCustomGoal}
+          onGenerateBoard={handleGenerateBoard}
+          error={error}
+          suggestedGoalsCount={suggestedGoals.length}
+          customGoalsCount={customGoals.length}
+          customAvailable={customAvailable}
+          suggestedAvailable={suggestedAvailable}
+          selectedCustomIds={selectedCustomIds}
+          selectedSuggestedIds={selectedSuggestedIds}
+          onToggleCustomSelection={handleToggleCustomSelection}
+          onToggleSuggestedSelection={handleToggleSuggestedSelection}
+          onSelectAllCustom={handleSelectAllCustom}
+          onClearCustom={handleClearCustom}
+          onSelectAllSuggested={handleSelectAllSuggested}
+          onClearSuggested={handleClearSuggested}
+          libraryFrequency={libraryFrequency}
+          onLibraryFrequencyChange={setLibraryFrequency}
+          librarySource={librarySource}
+          onLibrarySourceChange={setLibrarySource}
+          filteredLibraryGoals={filteredLibraryGoals}
+          customLibraryGoals={customLibraryGoals}
+          frequencyLabel={frequencyLabel}
+          onEditCustomGoal={handleEditCustomGoal}
+          onDeleteCustomGoal={handleDeleteCustomGoal}
+        />
       )}
 
       {activeTab === 'board' && (
         <>
           {board ? (
-            <section className="board">
-              <div className="board-header">
-                <div>
-                  {isEditingCurrentTitle ? (
-                    <div className="title-edit">
-                      <input
-                        type="text"
-                        value={currentTitleDraft}
-                        onChange={(event) => setCurrentTitleDraft(event.target.value)}
-                      />
-                      <div className="title-actions">
-                        <button className="secondary small" onClick={handleSaveCurrentTitle}>
-                          Save
-                        </button>
-                        <button
-                          className="ghost small"
-                          onClick={() => {
-                            setIsEditingCurrentTitle(false)
-                            setCurrentTitleDraft(board.title)
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="title-row">
-                      <h2>{board.title}</h2>
-                      <button
-                        className="ghost small"
-                        onClick={() => setIsEditingCurrentTitle(true)}
-                      >
-                        Edit name
-                      </button>
-                    </div>
-                  )}
-                  <div className="board-frequency">
-                    {frequencyLabel[board.goals[0]?.frequency ?? generationFrequency]}
-                  </div>
-                  <p>Tap goals to mark them complete. Get five in a row for Bingo.</p>
-                </div>
-                <div className="board-actions">
-                  {isRearranging ? (
-                    <>
-                      <button className="ghost" onClick={handleRearrangeRandomize}>
-                        Randomize
-                      </button>
-                      <button className="secondary" onClick={handleSaveRearrange}>
-                        Save
-                      </button>
-                      <button className="ghost" onClick={handleCancelRearrange}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button className="ghost" onClick={handleResetProgress}>
-                        Reset progress
-                      </button>
-                      <button className="ghost" onClick={handleEnterRearrange}>
-                        Rearrange
-                      </button>
-                      <button className="primary" onClick={handleCopyShareLink}>
-                        Share board
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {shareUrl && (
-                <div className="share">
-                  <input type="text" value={shareUrl} readOnly />
-                  <span>Link copied if clipboard is allowed.</span>
-                </div>
-              )}
-              {isRearranging ? (
-                <DndContext
-                  collisionDetection={closestCenter}
-                  sensors={sensors}
-                  onDragEnd={({ active, over }) => {
-                    if (!over || active.id === over.id) return
-                    setDraftGoals((prev) => {
-                      const oldIndex = prev.findIndex((goal) => goal.id === active.id)
-                      const newIndex = prev.findIndex((goal) => goal.id === over.id)
-                      if (oldIndex === -1 || newIndex === -1) return prev
-                      return arrayMove(prev, oldIndex, newIndex)
-                    })
-                  }}
-                >
-                  <SortableContext
-                    items={draftGoals.map((goal) => goal.id)}
-                    strategy={rectSortingStrategy}
-                  >
-                    <div
-                      className="grid"
-                      style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
-                    >
-                      {draftGoals.map((goal, index) => {
-                        const isBingoTile = bingoLine?.includes(index) ?? false
-                        const progress = getGoalProgress(goal)
-                        const fillPercent = Math.round(progress * 100)
-                        return (
-                          <SortableTile
-                            key={goal.id}
-                            goal={goal}
-                            index={index}
-                            isBingoTile={isBingoTile}
-                            fillPercent={fillPercent}
-                          />
-                        )
-                      })}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              ) : (
-                <div
-                  className="grid"
-                  style={{ gridTemplateColumns: `repeat(${currentBoardSize}, minmax(0, 1fr))` }}
-                >
-                  {board.goals.map((goal, index) => {
-                    const isBingoTile = bingoLine?.includes(index) ?? false
-                    const progress = getGoalProgress(goal)
-                    const fillPercent = Math.round(progress * 100)
-                    return (
-                      <div
-                        key={goal.id}
-                        className={`cell ${goal.completed ? 'completed' : ''} ${
-                          isBingoTile ? 'bingo-glow' : ''
-                        }`}
-                        style={{
-                          background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
-                        }}
-                      >
-                        <button
-                          className="cell-button"
-                          onClick={() => toggleGoal(goal.id)}
-                          aria-pressed={goal.completed}
-                        >
-                          <span className="cell-index">{index + 1}</span>
-                          {goal.text ? (
-                            <span className="cell-text">{goal.text}</span>
-                          ) : (
-                            <span className="cell-placeholder">Empty tile</span>
-                          )}
-                        </button>
-                        <button className="edit-button" onClick={() => handleEditGoal(goal.id)}>
-                          Edit
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
+            <CurrentBoard
+              board={board}
+              currentBoardSize={currentBoardSize}
+              shareUrl={shareUrl}
+              bingoLine={bingoLine}
+              isRearranging={isRearranging}
+              draftGoals={draftGoals}
+              boardFrequencyLabel={frequencyLabel[board.goals[0]?.frequency ?? generationFrequency]}
+              isEditingTitle={isEditingCurrentTitle}
+              currentTitleDraft={currentTitleDraft}
+              onTitleDraftChange={setCurrentTitleDraft}
+              onStartEditTitle={() => setIsEditingCurrentTitle(true)}
+              onCancelEditTitle={() => {
+                setIsEditingCurrentTitle(false)
+                setCurrentTitleDraft(board.title)
+              }}
+              onSaveTitle={handleSaveCurrentTitle}
+              onToggleGoal={toggleGoal}
+              onEditGoal={handleEditGoal}
+              onResetProgress={handleResetProgress}
+              onCopyShareLink={handleCopyShareLink}
+              onEnterRearrange={handleEnterRearrange}
+              onSaveRearrange={handleSaveRearrange}
+              onCancelRearrange={handleCancelRearrange}
+              onRearrangeRandomize={handleRearrangeRandomize}
+              onReorder={handleReorder}
+              getGoalProgress={getGoalProgress}
+            />
           ) : (
             <section className="panel">
               <div className="panel-header">
@@ -1740,53 +1118,18 @@ function App() {
       )}
 
       {activeTab === 'history' && (
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Board history</h2>
-            <p>Every generated board is saved here. Rename or reopen any board.</p>
-          </div>
-          {boards.length === 0 ? (
-            <p className="muted">No boards yet. Generate your first board to get started.</p>
-          ) : (
-            <div className="history-list">
-              {boards.map((item) => {
-                const boardFrequency = item.goals[0]?.frequency
-                const completedCount = item.goals.filter((goal) => goal.completed).length
-                const totalCount = item.goals.length
-                const historyBingo = hasBingo(item.goals, getBoardSize(item))
-                return (
-                  <div key={item.id} className="history-card">
-                    <div className="history-meta">
-                      <input
-                        type="text"
-                        value={titleEdits[item.id] ?? item.title}
-                        onChange={(event) =>
-                          setTitleEdits((prev) => ({ ...prev, [item.id]: event.target.value }))
-                        }
-                      />
-                      <span className="muted">
-                        {boardFrequency ? frequencyLabel[boardFrequency] : 'Unknown frequency'} •{' '}
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="muted">
-                        {completedCount}/{totalCount} complete
-                        {historyBingo ? ' • Bingo!' : ''}
-                      </span>
-                    </div>
-                    <div className="history-actions">
-                      <button className="secondary" onClick={() => handleOpenBoard(item.id)}>
-                        Open
-                      </button>
-                      <button className="ghost" onClick={() => handleSaveTitle(item.id)}>
-                        Save name
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </section>
+        <BoardHistory
+          boards={boards}
+          titleEdits={titleEdits}
+          onTitleEditChange={(id, value) =>
+            setTitleEdits((prev) => ({ ...prev, [id]: value }))
+          }
+          onOpenBoard={handleOpenBoard}
+          onSaveTitle={handleSaveTitle}
+          frequencyLabel={frequencyLabel}
+          getBoardSize={getBoardSize}
+          hasBingo={hasBingo}
+        />
       )}
 
       <section className="panel info">

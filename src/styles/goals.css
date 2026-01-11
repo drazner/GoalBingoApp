@@ -1,0 +1,73 @@
+.checklist-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.checklist {
+  background: #f9f4ed;
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.checklist summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.checklist summary::-webkit-details-marker {
+  display: none;
+}
+
+.checklist-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.checklist-items {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.check-item {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: start;
+  font-weight: 500;
+}
+
+.goal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.goal-list-item {
+  background: #f9f4ed;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.goal-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-chip {
+  background: var(--sand);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}

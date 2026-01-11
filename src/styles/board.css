@@ -1,0 +1,157 @@
+.board {
+  display: grid;
+  gap: 20px;
+}
+
+.board-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.board-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.board-frequency {
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.title-edit {
+  display: grid;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.title-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cell {
+  background: var(--white);
+  border: 2px solid #d7c7b5;
+  border-radius: 16px;
+  min-height: 120px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  position: relative;
+}
+
+.cell:hover {
+  transform: scale(1.01);
+  border-color: #c6a790;
+  box-shadow: 0 10px 18px rgba(27, 26, 26, 0.12);
+}
+
+.cell.bingo-glow {
+  border-color: #f5c542;
+  box-shadow: 0 0 26px rgba(245, 197, 66, 0.9), 0 0 48px rgba(245, 197, 66, 0.45);
+  animation: bingo-pulse 8s ease-in-out;
+}
+
+.cell.rearranging {
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  touch-action: none;
+}
+
+.cell.rearranging.dragging {
+  cursor: grabbing;
+  transform: scale(1.04);
+  box-shadow: 0 14px 26px rgba(27, 26, 26, 0.2);
+  z-index: 2;
+}
+
+.cell.rearranging:active {
+  cursor: grabbing;
+  transform: scale(1.03);
+  box-shadow: 0 12px 22px rgba(27, 26, 26, 0.18);
+}
+
+.cell-button {
+  background: transparent;
+  border: none;
+  padding: 16px;
+  padding-bottom: 44px;
+  text-align: left;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  height: auto;
+}
+
+.cell-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.cell .edit-button:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.cell.completed {
+  border-color: var(--teal);
+}
+
+.cell-index {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cell-text {
+  font-weight: 600;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.cell-placeholder {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.edit-button {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  background: var(--sand);
+  border-radius: 999px;
+}
+
+.share {
+  display: grid;
+  gap: 8px;
+}
+
+.share input {
+  width: 100%;
+}

@@ -1,0 +1,103 @@
+:root {
+  --ink: #1b1a1a;
+  --muted: #605e5e;
+  --cream: #f4efe8;
+  --sand: #e4d9c8;
+  --terracotta: #d8754e;
+  --teal: #205f66;
+  --sun: #f5c542;
+  --white: #ffffff;
+  --shadow: rgba(20, 16, 12, 0.12);
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+
+label.checkbox {
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: start;
+  gap: 12px;
+  font-weight: 600;
+}
+
+label.checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+input,
+select {
+  border-radius: 12px;
+  border: 1px solid #d6c9b9;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+button.small {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.primary {
+  background: var(--terracotta);
+  color: var(--white);
+}
+
+.secondary {
+  background: var(--teal);
+  color: var(--white);
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid #d6c9b9;
+}
+
+button.danger {
+  border-color: #d66a5c;
+  color: #a13b2e;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.pill {
+  background: var(--sand);
+  color: var(--ink);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  margin-right: 8px;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.error {
+  color: #b6493a;
+  font-weight: 600;
+}
+
+.small-text {
+  font-size: 0.85rem;
+}
