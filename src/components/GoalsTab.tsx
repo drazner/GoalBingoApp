@@ -21,14 +21,19 @@ type GoalsTabProps = {
   customGoalsCount: number
   customAvailable: GoalTemplate[]
   suggestedAvailable: GoalTemplate[]
+  recentIncompleteAvailable: GoalTemplate[]
   selectedCustomIds: Set<string>
   selectedSuggestedIds: Set<string>
+  selectedRecentIds: Set<string>
   onToggleCustomSelection: (id: string) => void
   onToggleSuggestedSelection: (id: string) => void
+  onToggleRecentSelection: (id: string) => void
   onSelectAllCustom: () => void
   onClearCustom: () => void
   onSelectAllSuggested: () => void
   onClearSuggested: () => void
+  onSelectAllRecent: () => void
+  onClearRecent: () => void
   libraryFrequency: Frequency
   onLibraryFrequencyChange: (value: Frequency) => void
   librarySource: 'suggested' | 'custom' | 'generated'
@@ -60,14 +65,19 @@ const GoalsTab = ({
   customGoalsCount,
   customAvailable,
   suggestedAvailable,
+  recentIncompleteAvailable,
   selectedCustomIds,
   selectedSuggestedIds,
+  selectedRecentIds,
   onToggleCustomSelection,
   onToggleSuggestedSelection,
+  onToggleRecentSelection,
   onSelectAllCustom,
   onClearCustom,
   onSelectAllSuggested,
   onClearSuggested,
+  onSelectAllRecent,
+  onClearRecent,
   libraryFrequency,
   onLibraryFrequencyChange,
   librarySource,
@@ -189,11 +199,43 @@ const GoalsTab = ({
             )}
           </div>
         </details>
+        <details className="checklist">
+          <summary>
+            Recently incomplete goals (
+            {recentIncompleteAvailable.filter((goal) => selectedRecentIds.has(goal.id)).length}/
+            {recentIncompleteAvailable.length})
+          </summary>
+          <div className="checklist-controls">
+            <button className="ghost small" type="button" onClick={onSelectAllRecent}>
+              Select all
+            </button>
+            <button className="ghost small" type="button" onClick={onClearRecent}>
+              Clear
+            </button>
+          </div>
+          <div className="checklist-items">
+            {recentIncompleteAvailable.length === 0 ? (
+              <p className="muted">No incomplete goals from recent boards yet.</p>
+            ) : (
+              recentIncompleteAvailable.map((goal) => (
+                <label key={goal.id} className="check-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedRecentIds.has(goal.id)}
+                    onChange={() => onToggleRecentSelection(goal.id)}
+                  />
+                  <span>{goal.text}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </details>
       </div>
       <div className="form-footer">
         <div>
           <span className="pill">Suggested: {suggestedGoalsCount}</span>
           <span className="pill">Custom: {customGoalsCount}</span>
+          <span className="pill">Recent incomplete: {recentIncompleteAvailable.length}</span>
           <span className="pill">
             Custom {frequencyLabel[generationFrequency]}: {customAvailable.length}
           </span>

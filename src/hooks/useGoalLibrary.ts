@@ -6,6 +6,7 @@ import type { Board, Frequency, Goal, GoalTemplate } from '../types'
 type UseGoalLibraryOptions = {
   generationFrequency: Frequency
   board: Board | null
+  boards: Board[]
   suggestedGoals: GoalTemplate[]
   createId: () => string
 }
@@ -23,10 +24,13 @@ type UseGoalLibraryReturn = {
   setLibrarySource: (value: 'suggested' | 'custom' | 'generated') => void
   selectedCustomIds: Set<string>
   selectedSuggestedIds: Set<string>
+  selectedRecentIds: Set<string>
   customAvailable: GoalTemplate[]
   suggestedAvailable: GoalTemplate[]
+  recentIncompleteAvailable: GoalTemplate[]
   customChecked: GoalTemplate[]
   suggestedChecked: GoalTemplate[]
+  recentChecked: GoalTemplate[]
   filteredLibraryGoals: GoalTemplate[] | Goal[]
   customLibraryGoals: GoalTemplate[]
   handleAddCustomGoal: () => void
@@ -38,11 +42,15 @@ type UseGoalLibraryReturn = {
   handleClearCustom: () => void
   handleSelectAllSuggested: () => void
   handleClearSuggested: () => void
+  handleToggleRecentSelection: (id: string) => void
+  handleSelectAllRecent: () => void
+  handleClearRecent: () => void
 }
 
 const useGoalLibrary = ({
   generationFrequency,
   board,
+  boards,
   suggestedGoals,
   createId,
 }: UseGoalLibraryOptions): UseGoalLibraryReturn => {
@@ -51,6 +59,7 @@ const useGoalLibrary = ({
   const [customGoals, setCustomGoals] = useState<GoalTemplate[]>([])
   const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set())
   const [selectedSuggestedIds, setSelectedSuggestedIds] = useState<Set<string>>(new Set())
+  const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(new Set())
   const [customSelectionTouched, setCustomSelectionTouched] = useState(false)
   const [libraryFrequency, setLibraryFrequency] = useState<Frequency>('weekly')
   const [librarySource, setLibrarySource] = useState<'suggested' | 'custom' | 'generated'>(
@@ -67,6 +76,38 @@ const useGoalLibrary = ({
     [generationFrequency, suggestedGoals]
   )
 
+  const recentIncompleteAvailable = useMemo(() => {
+    const isIncomplete = (goal: Goal) => {
+      if (goal.subgoals && goal.subgoals.length > 0) {
+        return goal.subgoals.some((subgoal) => !subgoal.done)
+      }
+      return !goal.completed
+    }
+
+    const seen = new Map<string, GoalTemplate>()
+    const processed = new Set<string>()
+    const sortedBoards = [...boards].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    sortedBoards.forEach((boardItem) => {
+      boardItem.goals.forEach((goal) => {
+        const text = goal.text.trim()
+        if (!text) return
+        if (goal.frequency !== generationFrequency) return
+        const key = `${goal.frequency}:${text.toLowerCase()}`
+        if (processed.has(key)) return
+        processed.add(key)
+        if (!isIncomplete(goal)) return
+        const encoded = encodeURIComponent(key)
+        seen.set(key, {
+          id: `recent-${goal.sourceGoalId ?? encoded}`,
+          text,
+          frequency: goal.frequency,
+        })
+      })
+    })
+
+    return Array.from(seen.values())
+  }, [boards, generationFrequency])
+
   const customChecked = useMemo(
     () => customAvailable.filter((goal) => selectedCustomIds.has(goal.id)),
     [customAvailable, selectedCustomIds]
@@ -75,6 +116,11 @@ const useGoalLibrary = ({
   const suggestedChecked = useMemo(
     () => suggestedAvailable.filter((goal) => selectedSuggestedIds.has(goal.id)),
     [suggestedAvailable, selectedSuggestedIds]
+  )
+
+  const recentChecked = useMemo(
+    () => recentIncompleteAvailable.filter((goal) => selectedRecentIds.has(goal.id)),
+    [recentIncompleteAvailable, selectedRecentIds]
   )
 
   const libraryGoals = useMemo(() => {
@@ -101,6 +147,11 @@ const useGoalLibrary = ({
     setSelectedSuggestedIds(new Set(suggestedIds))
     setCustomSelectionTouched(false)
   }, [generationFrequency, suggestedAvailable])
+
+  useEffect(() => {
+    const recentIds = recentIncompleteAvailable.map((goal) => goal.id)
+    setSelectedRecentIds(new Set(recentIds))
+  }, [generationFrequency, recentIncompleteAvailable])
 
   useEffect(() => {
     setSelectedCustomIds((prev) => {
@@ -173,6 +224,18 @@ const useGoalLibrary = ({
     })
   }
 
+  const handleToggleRecentSelection = (id: string) => {
+    setSelectedRecentIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
   const handleSelectAllCustom = () => {
     setCustomSelectionTouched(true)
     setSelectedCustomIds(new Set(customAvailable.map((goal) => goal.id)))
@@ -191,6 +254,14 @@ const useGoalLibrary = ({
     setSelectedSuggestedIds(new Set())
   }
 
+  const handleSelectAllRecent = () => {
+    setSelectedRecentIds(new Set(recentIncompleteAvailable.map((goal) => goal.id)))
+  }
+
+  const handleClearRecent = () => {
+    setSelectedRecentIds(new Set())
+  }
+
   return {
     customText,
     setCustomText,
@@ -204,10 +275,13 @@ const useGoalLibrary = ({
     setLibrarySource,
     selectedCustomIds,
     selectedSuggestedIds,
+    selectedRecentIds,
     customAvailable,
     suggestedAvailable,
+    recentIncompleteAvailable,
     customChecked,
     suggestedChecked,
+    recentChecked,
     filteredLibraryGoals,
     customLibraryGoals,
     handleAddCustomGoal,
@@ -219,6 +293,9 @@ const useGoalLibrary = ({
     handleClearCustom,
     handleSelectAllSuggested,
     handleClearSuggested,
+    handleToggleRecentSelection,
+    handleSelectAllRecent,
+    handleClearRecent,
   }
 }
 

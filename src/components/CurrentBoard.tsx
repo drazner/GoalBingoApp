@@ -29,6 +29,8 @@ type CurrentBoardProps = {
   onToggleGoal: (goalId: string) => void
   onEditGoal: (goalId: string) => void
   onResetProgress: () => void
+  onFillEmptyTiles: () => void
+  hasEmptyTiles: boolean
   onCopyShareLink: () => void
   onEnterRearrange: () => void
   onSaveRearrange: () => void
@@ -55,6 +57,8 @@ const CurrentBoard = ({
   onToggleGoal,
   onEditGoal,
   onResetProgress,
+  onFillEmptyTiles,
+  hasEmptyTiles,
   onCopyShareLink,
   onEnterRearrange,
   onSaveRearrange,
@@ -118,6 +122,11 @@ const CurrentBoard = ({
               <button className="ghost" onClick={onResetProgress}>
                 Reset progress
               </button>
+              {hasEmptyTiles && (
+                <button className="ghost" onClick={onFillEmptyTiles}>
+                  Fill empty tiles
+                </button>
+              )}
               <button className="ghost" onClick={onEnterRearrange}>
                 Rearrange
               </button>

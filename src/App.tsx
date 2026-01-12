@@ -258,9 +258,16 @@ function App() {
     handleClearCustom,
     handleSelectAllSuggested,
     handleClearSuggested,
+    selectedRecentIds,
+    recentIncompleteAvailable,
+    recentChecked,
+    handleToggleRecentSelection,
+    handleSelectAllRecent,
+    handleClearRecent,
   } = useGoalLibrary({
     generationFrequency,
     board,
+    boards,
     suggestedGoals,
     createId: safeRandomId,
   })
@@ -531,15 +538,28 @@ function App() {
       ? boardSize
       : defaultBoardSizeByFrequency[generationFrequency]
     const totalTiles = safeSize * safeSize
-    const shuffledCustom = shuffle(customChecked)
-    const trimmedCustom = shuffledCustom.slice(0, totalTiles)
-    const selected = [...trimmedCustom]
-    if (!customOnly && selected.length < totalTiles) {
-      const remaining = totalTiles - selected.length
-      const suggestedPick = shuffle(suggestedChecked).slice(0, remaining)
-      selected.push(...suggestedPick)
+    const selected: GoalTemplate[] = []
+    const seen = new Set<string>()
+    const makeKey = (goal: GoalTemplate) => `${goal.frequency}:${goal.text.trim().toLowerCase()}`
+    const addUnique = (items: GoalTemplate[]) => {
+      items.forEach((goal) => {
+        const text = goal.text.trim()
+        if (!text) return
+        const key = makeKey(goal)
+        if (seen.has(key)) return
+        seen.add(key)
+        selected.push(goal)
+      })
     }
-    const goals = selected.map((goal) => ({
+
+    addUnique(shuffle(recentChecked))
+    addUnique(shuffle(customChecked))
+    if (!customOnly) {
+      addUnique(shuffle(suggestedChecked))
+    }
+
+    const trimmedSelected = selected.slice(0, totalTiles)
+    const goals = trimmedSelected.map((goal) => ({
       id: safeRandomId(),
       text: goal.text,
       frequency: goal.frequency,
@@ -604,6 +624,45 @@ function App() {
       goals: current.goals.map((goal) => ({ ...goal, completed: false })),
       celebrated: false,
     }))
+  }
+
+  const handleFillEmptyTiles = () => {
+    if (!board) return
+    const boardFrequency = board.goals[0]?.frequency ?? generationFrequency
+    const existingTexts = new Set(
+      board.goals
+        .map((goal) => goal.text.trim().toLowerCase())
+        .filter((text) => text.length > 0)
+    )
+    const customPool = customGoals
+      .filter((goal) => goal.frequency === boardFrequency)
+      .filter((goal) => !existingTexts.has(goal.text.trim().toLowerCase()))
+    const suggestedPool = suggestedGoals
+      .filter((goal) => goal.frequency === boardFrequency)
+      .filter((goal) => !existingTexts.has(goal.text.trim().toLowerCase()))
+    const candidates = [...shuffle(customPool), ...shuffle(suggestedPool)]
+
+    updateCurrentBoard((current) => {
+      let candidateIndex = 0
+      const nextGoals = current.goals.map((goal) => {
+        if (goal.text.trim()) return goal
+        const candidate = candidates[candidateIndex]
+        if (!candidate) return goal
+        candidateIndex += 1
+        return {
+          ...goal,
+          text: candidate.text,
+          frequency: candidate.frequency,
+          sourceGoalId: customGoals.some((custom) => custom.id === candidate.id)
+            ? candidate.id
+            : undefined,
+        }
+      })
+      return {
+        ...current,
+        goals: nextGoals,
+      }
+    })
   }
 
   const handleSaveCurrentTitle = () => {
@@ -922,14 +981,19 @@ function App() {
           customGoalsCount={customGoals.length}
           customAvailable={customAvailable}
           suggestedAvailable={suggestedAvailable}
+          recentIncompleteAvailable={recentIncompleteAvailable}
           selectedCustomIds={selectedCustomIds}
           selectedSuggestedIds={selectedSuggestedIds}
+          selectedRecentIds={selectedRecentIds}
           onToggleCustomSelection={handleToggleCustomSelection}
           onToggleSuggestedSelection={handleToggleSuggestedSelection}
+          onToggleRecentSelection={handleToggleRecentSelection}
           onSelectAllCustom={handleSelectAllCustom}
           onClearCustom={handleClearCustom}
           onSelectAllSuggested={handleSelectAllSuggested}
           onClearSuggested={handleClearSuggested}
+          onSelectAllRecent={handleSelectAllRecent}
+          onClearRecent={handleClearRecent}
           libraryFrequency={libraryFrequency}
           onLibraryFrequencyChange={setLibraryFrequency}
           librarySource={librarySource}
@@ -965,6 +1029,8 @@ function App() {
               onToggleGoal={toggleGoal}
               onEditGoal={handleEditGoal}
               onResetProgress={handleResetProgress}
+              onFillEmptyTiles={handleFillEmptyTiles}
+              hasEmptyTiles={board.goals.some((goal) => !goal.text.trim())}
               onCopyShareLink={handleCopyShareLink}
               onEnterRearrange={handleEnterRearrange}
               onSaveRearrange={handleSaveRearrange}
