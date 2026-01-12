@@ -9,12 +9,19 @@
   }
 
   .cell {
-    min-height: 110px;
+    min-height: 96px;
+    gap: 6px;
   }
 
   .cell-text {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     -webkit-line-clamp: 4;
+  }
+
+  .cell-button {
+    padding: 12px;
+    padding-bottom: 34px;
+    gap: 8px;
   }
 
   .board.is-rearranging .cell-text {
