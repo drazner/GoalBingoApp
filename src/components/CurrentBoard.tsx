@@ -116,7 +116,7 @@ const CurrentBoard = ({
           {isRearranging ? (
             <>
               <button className="ghost" onClick={onRearrangeRandomize}>
-                Randomize
+                Shuffle
               </button>
               <button className="secondary" onClick={onSaveRearrange}>
                 Save
