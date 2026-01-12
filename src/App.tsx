@@ -694,11 +694,21 @@ function App() {
   }
 
   const handleResetProgress = () => {
+    const resetGoal = (goal: Goal) => ({
+      ...goal,
+      completed: false,
+      ...(goal.subgoals
+        ? { subgoals: goal.subgoals.map((subgoal) => ({ ...subgoal, done: false })) }
+        : {}),
+    })
     updateCurrentBoard((current) => ({
       ...current,
-      goals: current.goals.map((goal) => ({ ...goal, completed: false })),
+      goals: current.goals.map(resetGoal),
       celebrated: false,
     }))
+    if (isRearranging) {
+      setDraftGoals((prev) => prev.map(resetGoal))
+    }
   }
 
   const handleFillEmptyTiles = () => {
