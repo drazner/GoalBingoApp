@@ -118,10 +118,7 @@
 }
 
 .cell-index {
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--muted);
+  display: none;
 }
 
 .cell-text {
@@ -150,6 +147,11 @@
   font-size: 0.75rem;
   background: var(--sand);
   border-radius: 999px;
+  display: none;
+}
+
+.board.is-rearranging .edit-button {
+  display: inline-flex;
 }
 
 .share {

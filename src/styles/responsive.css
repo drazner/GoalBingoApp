@@ -14,33 +14,21 @@
 
   .cell-text {
     font-size: 0.9rem;
+    -webkit-line-clamp: 4;
+  }
+
+  .board.is-rearranging .cell-text {
     -webkit-line-clamp: 3;
-  }
-
-  .cell-index {
-    display: none;
-  }
-
-  .cell .edit-button {
-    display: none;
-  }
-
-  .cell.rearranging .edit-button {
-    display: inline-flex;
   }
 }
 
 @media (hover: none) and (pointer: coarse) {
-  .cell-index {
-    display: none;
+  .cell-text {
+    -webkit-line-clamp: 4;
   }
 
-  .cell .edit-button {
-    display: none;
-  }
-
-  .cell.rearranging .edit-button {
-    display: inline-flex;
+  .board.is-rearranging .cell-text {
+    -webkit-line-clamp: 3;
   }
 }
 

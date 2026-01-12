@@ -76,7 +76,7 @@ const CurrentBoard = ({
   )
 
   return (
-    <section className="board">
+    <section className={`board ${isRearranging ? 'is-rearranging' : ''}`}>
       <div className="board-header">
         <div>
           {isEditingTitle ? (
@@ -210,9 +210,6 @@ const CurrentBoard = ({
                   ) : (
                     <span className="cell-placeholder">Empty tile</span>
                   )}
-                </button>
-                <button className="edit-button" onClick={() => onEditGoal(goal.id)}>
-                  Edit
                 </button>
               </div>
             )
