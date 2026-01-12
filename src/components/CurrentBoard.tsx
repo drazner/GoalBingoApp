@@ -22,6 +22,7 @@ type CurrentBoardProps = {
   boardFrequencyLabel: string
   isEditingTitle: boolean
   currentTitleDraft: string
+  maxBoardTitleLength: number
   onTitleDraftChange: (value: string) => void
   onStartEditTitle: () => void
   onCancelEditTitle: () => void
@@ -50,6 +51,7 @@ const CurrentBoard = ({
   boardFrequencyLabel,
   isEditingTitle,
   currentTitleDraft,
+  maxBoardTitleLength,
   onTitleDraftChange,
   onStartEditTitle,
   onCancelEditTitle,
@@ -83,7 +85,13 @@ const CurrentBoard = ({
                 type="text"
                 value={currentTitleDraft}
                 onChange={(event) => onTitleDraftChange(event.target.value)}
+                maxLength={maxBoardTitleLength}
               />
+              {currentTitleDraft.length >= Math.ceil(maxBoardTitleLength * 0.8) && (
+                <span className="muted small-text">
+                  {currentTitleDraft.length}/{maxBoardTitleLength}
+                </span>
+              )}
               <div className="title-actions">
                 <button className="secondary small" onClick={onSaveTitle}>
                   Save

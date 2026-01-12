@@ -9,6 +9,7 @@ import GoalModals from './components/GoalModals'
 import useBoardSettings from './hooks/useBoardSettings'
 import useBoardState from './hooks/useBoardState'
 import useGoalLibrary from './hooks/useGoalLibrary'
+import useGoalTextLimit from './hooks/useGoalTextLimit'
 import { suggestedGoals } from './data/suggestedGoals'
 import {
   defaultBoardSizeByFrequency,
@@ -26,6 +27,7 @@ import type {
   SubgoalModalState,
   UiState,
 } from './types'
+import { sanitizeGoalText } from './utils/text'
 import {
   auth,
   db,
@@ -205,6 +207,7 @@ const playCelebrationTone = () => {
 function App() {
   // Core app state.
   const [sharedBoard, setSharedBoard] = useState<Board | null>(null)
+  const maxGoalTextLength = useGoalTextLimit()
   const {
     boardTitle,
     setBoardTitle,
@@ -229,7 +232,7 @@ function App() {
     updateCurrentBoard,
     handleOpenBoard,
     handleSaveTitle,
-  } = useBoardState({ getBoardSize })
+  } = useBoardState({ getBoardSize, maxBoardTitleLength: maxGoalTextLength })
   const {
     customText,
     setCustomText,
@@ -269,6 +272,7 @@ function App() {
     board,
     boards,
     suggestedGoals,
+    maxGoalTextLength,
     createId: safeRandomId,
   })
   const [error, setError] = useState<string | null>(null)
@@ -292,6 +296,18 @@ function App() {
   const [subgoalModal, setSubgoalModal] = useState<SubgoalModalState | null>(null)
   const [isRearranging, setIsRearranging] = useState(false)
   const [draftGoals, setDraftGoals] = useState<Goal[]>([])
+  const uniqueSelectedCount = (() => {
+    const seen = new Set<string>()
+    const addGoal = (goal: GoalTemplate) => {
+      const text = goal.text.trim()
+      if (!text) return
+      seen.add(`${goal.frequency}:${text.toLowerCase()}`)
+    }
+    recentChecked.forEach(addGoal)
+    customChecked.forEach(addGoal)
+    suggestedChecked.forEach(addGoal)
+    return seen.size
+  })()
 
   // Load saved data and shared links on startup.
   // Detect Bingo and celebrate once.
@@ -538,34 +554,69 @@ function App() {
       ? boardSize
       : defaultBoardSizeByFrequency[generationFrequency]
     const totalTiles = safeSize * safeSize
-    const selected: GoalTemplate[] = []
-    const seen = new Set<string>()
     const makeKey = (goal: GoalTemplate) => `${goal.frequency}:${goal.text.trim().toLowerCase()}`
-    const addUnique = (items: GoalTemplate[]) => {
+    const buildMap = (items: GoalTemplate[]) => {
+      const map = new Map<string, GoalTemplate>()
       items.forEach((goal) => {
         const text = goal.text.trim()
         if (!text) return
-        const key = makeKey(goal)
+        map.set(makeKey(goal), goal)
+      })
+      return map
+    }
+
+    const recentMap = buildMap(recentChecked)
+    const customMap = buildMap(customChecked)
+    const suggestedMap = buildMap(suggestedChecked)
+
+    const recentCustomKeys = Array.from(recentMap.keys()).filter((key) => customMap.has(key))
+    const recentSuggestedKeys = Array.from(recentMap.keys()).filter(
+      (key) => suggestedMap.has(key) && !customMap.has(key)
+    )
+    const customOnlyKeys = Array.from(customMap.keys()).filter((key) => !recentMap.has(key))
+    const suggestedOnlyKeys = Array.from(suggestedMap.keys()).filter(
+      (key) => !recentMap.has(key) && !customMap.has(key)
+    )
+
+    const selectedKeys: string[] = []
+    const seen = new Set<string>()
+    const addKeys = (keys: string[]) => {
+      shuffle(keys).forEach((key) => {
         if (seen.has(key)) return
         seen.add(key)
-        selected.push(goal)
+        selectedKeys.push(key)
       })
     }
 
-    addUnique(shuffle(recentChecked))
-    addUnique(shuffle(customChecked))
+    addKeys(recentCustomKeys)
     if (!customOnly) {
-      addUnique(shuffle(suggestedChecked))
+      addKeys(recentSuggestedKeys)
+    }
+    addKeys(customOnlyKeys)
+    if (!customOnly) {
+      addKeys(suggestedOnlyKeys)
     }
 
-    const trimmedSelected = selected.slice(0, totalTiles)
-    const goals = trimmedSelected.map((goal) => ({
-      id: safeRandomId(),
-      text: goal.text,
-      frequency: goal.frequency,
-      completed: false,
-      sourceGoalId: customGoals.some((custom) => custom.id === goal.id) ? goal.id : undefined,
-    }))
+    const trimmedSelected = selectedKeys.slice(0, totalTiles)
+    const goals = trimmedSelected.map((key) => {
+      const goal = recentMap.get(key) ?? customMap.get(key) ?? suggestedMap.get(key)
+      if (!goal) {
+        return {
+          id: safeRandomId(),
+          text: '',
+          frequency: generationFrequency,
+          completed: false,
+          sourceGoalId: undefined,
+        }
+      }
+      return {
+        id: safeRandomId(),
+        text: goal.text,
+        frequency: goal.frequency,
+        completed: false,
+        sourceGoalId: customGoals.some((custom) => custom.id === goal.id) ? goal.id : undefined,
+      }
+    })
     while (goals.length < totalTiles) {
       goals.push({
         id: safeRandomId(),
@@ -577,7 +628,7 @@ function App() {
     }
     const newBoard: Board = {
       id: safeRandomId(),
-      title: boardTitle.trim() || 'Goal Bingo',
+      title: sanitizeGoalText(boardTitle, maxGoalTextLength) || 'Goal Bingo',
       createdAt: new Date().toISOString(),
       goals,
       size: safeSize,
@@ -667,7 +718,7 @@ function App() {
 
   const handleSaveCurrentTitle = () => {
     if (!board) return
-    const nextTitle = currentTitleDraft.trim()
+    const nextTitle = sanitizeGoalText(currentTitleDraft, maxGoalTextLength)
     if (!nextTitle) return
     updateCurrentBoard((current) => ({
       ...current,
@@ -736,8 +787,8 @@ function App() {
 
   const handleApplyGoalEdit = () => {
     if (!board || !editGoalModal) return
-    const trimmedText = editGoalModal.text.trim()
-    if (!trimmedText) return
+    const cleanedText = sanitizeGoalText(editGoalModal.text, maxGoalTextLength)
+    if (!cleanedText) return
     const target = board.goals.find((goal) => goal.id === editGoalModal.goalId)
     if (!target) {
       setEditGoalModal(null)
@@ -746,11 +797,11 @@ function App() {
     updateCurrentBoard((current) => ({
       ...current,
       goals: current.goals.map((goal) =>
-        goal.id === editGoalModal.goalId ? { ...goal, text: trimmedText } : goal
+        goal.id === editGoalModal.goalId ? { ...goal, text: cleanedText } : goal
       ),
     }))
     setPendingGoalSave({
-      text: trimmedText,
+      text: cleanedText,
       frequency: target.frequency,
       sourceGoalId: target.sourceGoalId,
     })
@@ -822,7 +873,10 @@ function App() {
   const handleSaveSubgoals = () => {
     if (!board || !subgoalModal) return
     const cleaned = subgoalModal.subgoals
-      .map((subgoal) => ({ ...subgoal, text: subgoal.text.trim() }))
+      .map((subgoal) => ({
+        ...subgoal,
+        text: sanitizeGoalText(subgoal.text, maxGoalTextLength),
+      }))
       .filter((subgoal) => subgoal.text)
     const finalList =
       cleaned.length >= 2
@@ -902,6 +956,7 @@ function App() {
         pendingGoalSave={pendingGoalSave}
         editGoalModal={editGoalModal}
         subgoalModal={subgoalModal}
+        maxGoalTextLength={maxGoalTextLength}
         onSaveEditedGoal={handleSaveEditedGoal}
         onEditGoalChange={(value) =>
           setEditGoalModal((prev) => (prev ? { ...prev, text: value } : prev))
@@ -961,6 +1016,7 @@ function App() {
         <GoalsTab
           boardTitle={boardTitle}
           onBoardTitleChange={setBoardTitle}
+          maxBoardTitleLength={maxGoalTextLength}
           generationFrequency={generationFrequency}
           onGenerationFrequencyChange={setGenerationFrequency}
           boardSize={boardSize}
@@ -972,10 +1028,12 @@ function App() {
           onCustomOnlyChange={setCustomOnly}
           customText={customText}
           onCustomTextChange={setCustomText}
+          maxGoalTextLength={maxGoalTextLength}
           customFrequency={customFrequency}
           onCustomFrequencyChange={setCustomFrequency}
           onAddCustomGoal={handleAddCustomGoal}
           onGenerateBoard={handleGenerateBoard}
+          uniqueSelectedCount={uniqueSelectedCount}
           error={error}
           suggestedGoalsCount={suggestedGoals.length}
           customGoalsCount={customGoals.length}
@@ -1019,6 +1077,7 @@ function App() {
               boardFrequencyLabel={frequencyLabel[board.goals[0]?.frequency ?? generationFrequency]}
               isEditingTitle={isEditingCurrentTitle}
               currentTitleDraft={currentTitleDraft}
+              maxBoardTitleLength={maxGoalTextLength}
               onTitleDraftChange={setCurrentTitleDraft}
               onStartEditTitle={() => setIsEditingCurrentTitle(true)}
               onCancelEditTitle={() => {
@@ -1065,6 +1124,7 @@ function App() {
             setActiveTab('board')
           }}
           onSaveTitle={handleSaveTitle}
+          maxBoardTitleLength={maxGoalTextLength}
           frequencyLabel={frequencyLabel}
           getBoardSize={getBoardSize}
           hasBingo={hasBingo}

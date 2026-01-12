@@ -17,3 +17,6 @@ export const defaultBoardSizeByFrequency: Record<Frequency, number> = {
   monthly: 4,
   yearly: 5,
 }
+
+export const DESKTOP_GOAL_TEXT_LIMIT = 60
+export const MOBILE_GOAL_TEXT_LIMIT = 50

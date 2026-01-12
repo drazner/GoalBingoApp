@@ -1,7 +1,9 @@
 // Board history and current board state helpers.
 import { useCallback, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import { DESKTOP_GOAL_TEXT_LIMIT } from '../constants'
 import type { Board } from '../types'
+import { sanitizeGoalText } from '../utils/text'
 
 type UseBoardStateReturn = {
   boards: Board[]
@@ -20,9 +22,13 @@ type UseBoardStateReturn = {
 
 type UseBoardStateOptions = {
   getBoardSize: (board: Board | null) => number
+  maxBoardTitleLength?: number
 }
 
-const useBoardState = ({ getBoardSize }: UseBoardStateOptions): UseBoardStateReturn => {
+const useBoardState = ({
+  getBoardSize,
+  maxBoardTitleLength = DESKTOP_GOAL_TEXT_LIMIT,
+}: UseBoardStateOptions): UseBoardStateReturn => {
   const [boards, setBoards] = useState<Board[]>([])
   const [currentBoardId, setCurrentBoardId] = useState<string | null>(null)
   const [titleEdits, setTitleEdits] = useState<Record<string, string>>({})
@@ -52,7 +58,7 @@ const useBoardState = ({ getBoardSize }: UseBoardStateOptions): UseBoardStateRet
       setBoards((prev) =>
         prev.map((item) => {
           if (item.id !== id) return item
-          const nextTitle = (titleEdits[id] ?? item.title).trim()
+          const nextTitle = sanitizeGoalText(titleEdits[id] ?? item.title, maxBoardTitleLength)
           return nextTitle ? { ...item, title: nextTitle } : item
         })
       )

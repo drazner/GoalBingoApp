@@ -1,13 +1,16 @@
 // Custom goal library state, filters, and selection handlers.
 import { useEffect, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import { DESKTOP_GOAL_TEXT_LIMIT } from '../constants'
 import type { Board, Frequency, Goal, GoalTemplate } from '../types'
+import { sanitizeGoalText } from '../utils/text'
 
 type UseGoalLibraryOptions = {
   generationFrequency: Frequency
   board: Board | null
   boards: Board[]
   suggestedGoals: GoalTemplate[]
+  maxGoalTextLength?: number
   createId: () => string
 }
 
@@ -52,6 +55,7 @@ const useGoalLibrary = ({
   board,
   boards,
   suggestedGoals,
+  maxGoalTextLength = DESKTOP_GOAL_TEXT_LIMIT,
   createId,
 }: UseGoalLibraryOptions): UseGoalLibraryReturn => {
   const [customText, setCustomText] = useState('')
@@ -169,12 +173,13 @@ const useGoalLibrary = ({
   }, [customAvailable, customSelectionTouched])
 
   const handleAddCustomGoal = () => {
-    if (!customText.trim()) return
+    const cleaned = sanitizeGoalText(customText, maxGoalTextLength)
+    if (!cleaned) return
     setCustomGoals((prev) => [
       ...prev,
       {
         id: createId(),
-        text: customText.trim(),
+        text: cleaned,
         frequency: customFrequency,
       },
     ])
@@ -185,9 +190,11 @@ const useGoalLibrary = ({
     const target = customGoals.find((goal) => goal.id === id)
     if (!target) return
     const nextText = window.prompt('Edit custom goal', target.text)
-    if (!nextText || !nextText.trim()) return
+    if (!nextText) return
+    const cleaned = sanitizeGoalText(nextText, maxGoalTextLength)
+    if (!cleaned) return
     setCustomGoals((prev) =>
-      prev.map((goal) => (goal.id === id ? { ...goal, text: nextText.trim() } : goal))
+      prev.map((goal) => (goal.id === id ? { ...goal, text: cleaned } : goal))
     )
   }
 

@@ -4,6 +4,7 @@ import type { Frequency, Goal, GoalTemplate } from '../types'
 type GoalsTabProps = {
   boardTitle: string
   onBoardTitleChange: (value: string) => void
+  maxBoardTitleLength: number
   generationFrequency: Frequency
   onGenerationFrequencyChange: (value: Frequency) => void
   boardSize: number
@@ -12,10 +13,12 @@ type GoalsTabProps = {
   onCustomOnlyChange: (value: boolean) => void
   customText: string
   onCustomTextChange: (value: string) => void
+  maxGoalTextLength: number
   customFrequency: Frequency
   onCustomFrequencyChange: (value: Frequency) => void
   onAddCustomGoal: () => void
   onGenerateBoard: () => void
+  uniqueSelectedCount: number
   error: string | null
   suggestedGoalsCount: number
   customGoalsCount: number
@@ -48,6 +51,7 @@ type GoalsTabProps = {
 const GoalsTab = ({
   boardTitle,
   onBoardTitleChange,
+  maxBoardTitleLength,
   generationFrequency,
   onGenerationFrequencyChange,
   boardSize,
@@ -56,10 +60,12 @@ const GoalsTab = ({
   onCustomOnlyChange,
   customText,
   onCustomTextChange,
+  maxGoalTextLength,
   customFrequency,
   onCustomFrequencyChange,
   onAddCustomGoal,
   onGenerateBoard,
+  uniqueSelectedCount,
   error,
   suggestedGoalsCount,
   customGoalsCount,
@@ -102,7 +108,13 @@ const GoalsTab = ({
             value={boardTitle}
             onChange={(event) => onBoardTitleChange(event.target.value)}
             placeholder="Goal Bingo"
+            maxLength={maxBoardTitleLength}
           />
+          {boardTitle.length >= Math.ceil(maxBoardTitleLength * 0.8) && (
+            <span className="muted small-text">
+              {boardTitle.length}/{maxBoardTitleLength}
+            </span>
+          )}
         </label>
         <label>
           Board frequency
@@ -233,6 +245,19 @@ const GoalsTab = ({
       </div>
       <div className="form-footer">
         <div>
+          <span
+            className={`pill unique-pill ${
+              uniqueSelectedCount === 0
+                ? 'unique-zero'
+                : uniqueSelectedCount < boardSize * boardSize
+                ? 'unique-partial'
+                : uniqueSelectedCount === boardSize * boardSize
+                ? 'unique-full'
+                : 'unique-over'
+            }`}
+          >
+            Unique goals selected: {uniqueSelectedCount}/{boardSize * boardSize}
+          </span>
           <span className="pill">Suggested: {suggestedGoalsCount}</span>
           <span className="pill">Custom: {customGoalsCount}</span>
           <span className="pill">Recent incomplete: {recentIncompleteAvailable.length}</span>
@@ -247,6 +272,11 @@ const GoalsTab = ({
           Generate {boardSize}x{boardSize} board
         </button>
       </div>
+      <p className="muted small-text">
+        Tip: If you select fewer unique goals than the board size, empty tiles will fill the
+        remaining spots. If you select more, a random subset is used with priority for recently
+        incomplete and custom goals.
+      </p>
       {error && <p className="error">{error}</p>}
     </section>
 
@@ -263,7 +293,13 @@ const GoalsTab = ({
             value={customText}
             onChange={(event) => onCustomTextChange(event.target.value)}
             placeholder="Run 3 miles"
+            maxLength={maxGoalTextLength}
           />
+          {customText.length >= Math.ceil(maxGoalTextLength * 0.8) && (
+            <span className="muted small-text">
+              {customText.length}/{maxGoalTextLength}
+            </span>
+          )}
         </label>
         <label>
           Frequency

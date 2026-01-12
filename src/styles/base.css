@@ -94,6 +94,26 @@ button.danger {
   gap: 4px;
 }
 
+.unique-pill {
+  color: #1b1a1a;
+}
+
+.unique-pill.unique-zero {
+  background: #e6b3ad;
+}
+
+.unique-pill.unique-partial {
+  background: #f2d1a8;
+}
+
+.unique-pill.unique-full {
+  background: #cfe6c8;
+}
+
+.unique-pill.unique-over {
+  background: #9ccb9e;
+}
+
 .error {
   color: #b6493a;
   font-weight: 600;

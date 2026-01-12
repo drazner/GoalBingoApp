@@ -5,6 +5,7 @@ type GoalModalsProps = {
   pendingGoalSave: PendingGoalSave | null
   editGoalModal: EditGoalModalState | null
   subgoalModal: SubgoalModalState | null
+  maxGoalTextLength: number
   onSaveEditedGoal: (mode: 'new' | 'update' | 'skip') => void
   onEditGoalChange: (value: string) => void
   onApplyGoalEdit: () => void
@@ -22,6 +23,7 @@ const GoalModals = ({
   pendingGoalSave,
   editGoalModal,
   subgoalModal,
+  maxGoalTextLength,
   onSaveEditedGoal,
   onEditGoalChange,
   onApplyGoalEdit,
@@ -67,7 +69,13 @@ const GoalModals = ({
             type="text"
             value={editGoalModal.text}
             onChange={(event) => onEditGoalChange(event.target.value)}
+            maxLength={maxGoalTextLength}
           />
+          {editGoalModal.text.length >= Math.ceil(maxGoalTextLength * 0.8) && (
+            <span className="muted small-text">
+              {editGoalModal.text.length}/{maxGoalTextLength}
+            </span>
+          )}
           <div className="modal-actions">
             <button className="primary" onClick={onApplyGoalEdit}>
               Save edit
@@ -95,12 +103,20 @@ const GoalModals = ({
                   checked={subgoal.done}
                   onChange={() => onToggleSubgoal(subgoal.id)}
                 />
-                <input
-                  type="text"
-                  value={subgoal.text}
-                  onChange={(event) => onUpdateSubgoalText(subgoal.id, event.target.value)}
-                  placeholder={`Subgoal ${index + 1}`}
-                />
+                <div className="subgoal-text">
+                  <input
+                    type="text"
+                    value={subgoal.text}
+                    onChange={(event) => onUpdateSubgoalText(subgoal.id, event.target.value)}
+                    placeholder={`Subgoal ${index + 1}`}
+                    maxLength={maxGoalTextLength}
+                  />
+                  {subgoal.text.length >= Math.ceil(maxGoalTextLength * 0.8) && (
+                    <span className="muted small-text">
+                      {subgoal.text.length}/{maxGoalTextLength}
+                    </span>
+                  )}
+                </div>
                 <button className="ghost small" type="button" onClick={() => onDeleteSubgoal(subgoal.id)}>
                   Delete
                 </button>

@@ -11,6 +11,10 @@
   .cell {
     min-height: 110px;
   }
+
+  .cell-text {
+    -webkit-line-clamp: 2;
+  }
 }
 
 @media (max-width: 540px) {

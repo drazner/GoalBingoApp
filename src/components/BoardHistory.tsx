@@ -7,6 +7,7 @@ type BoardHistoryProps = {
   onTitleEditChange: (id: string, value: string) => void
   onOpenBoard: (id: string) => void
   onSaveTitle: (id: string) => void
+  maxBoardTitleLength: number
   frequencyLabel: Record<Frequency, string>
   getBoardSize: (board: Board | null) => number
   hasBingo: (goals: Board['goals'], size: number) => boolean
@@ -18,6 +19,7 @@ const BoardHistory = ({
   onTitleEditChange,
   onOpenBoard,
   onSaveTitle,
+  maxBoardTitleLength,
   frequencyLabel,
   getBoardSize,
   hasBingo,
@@ -43,7 +45,14 @@ const BoardHistory = ({
                   type="text"
                   value={titleEdits[item.id] ?? item.title}
                   onChange={(event) => onTitleEditChange(item.id, event.target.value)}
+                  maxLength={maxBoardTitleLength}
                 />
+                {(titleEdits[item.id] ?? item.title).length >=
+                  Math.ceil(maxBoardTitleLength * 0.8) && (
+                  <span className="muted small-text">
+                    {(titleEdits[item.id] ?? item.title).length}/{maxBoardTitleLength}
+                  </span>
+                )}
                 <span className="muted">
                   {boardFrequency ? frequencyLabel[boardFrequency] : 'Unknown frequency'} •{' '}
                   {new Date(item.createdAt).toLocaleDateString()}
