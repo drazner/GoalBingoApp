@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { DESKTOP_GOAL_TEXT_LIMIT } from '../constants'
 import type { Board, Frequency, Goal, GoalTemplate } from '../types'
+import { getGoalKey } from '../utils/goalKeys'
 import { sanitizeGoalText } from '../utils/text'
 
 type UseGoalLibraryOptions = {
@@ -10,6 +11,7 @@ type UseGoalLibraryOptions = {
   board: Board | null
   boards: Board[]
   suggestedGoals: GoalTemplate[]
+  dismissedRecentGoals?: string[]
   maxGoalTextLength?: number
   createId: () => string
 }
@@ -55,6 +57,7 @@ const useGoalLibrary = ({
   board,
   boards,
   suggestedGoals,
+  dismissedRecentGoals = [],
   maxGoalTextLength = DESKTOP_GOAL_TEXT_LIMIT,
   createId,
 }: UseGoalLibraryOptions): UseGoalLibraryReturn => {
@@ -90,13 +93,15 @@ const useGoalLibrary = ({
 
     const seen = new Map<string, GoalTemplate>()
     const processed = new Set<string>()
+    const dismissedSet = new Set(dismissedRecentGoals)
     const sortedBoards = [...boards].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     sortedBoards.forEach((boardItem) => {
       boardItem.goals.forEach((goal) => {
         const text = goal.text.trim()
         if (!text) return
         if (goal.frequency !== generationFrequency) return
-        const key = `${goal.frequency}:${text.toLowerCase()}`
+        const key = getGoalKey(goal.frequency, text)
+        if (dismissedSet.has(key)) return
         if (processed.has(key)) return
         processed.add(key)
         if (!isIncomplete(goal)) return

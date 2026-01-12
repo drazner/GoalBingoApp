@@ -28,6 +28,7 @@ import type {
   UiState,
 } from './types'
 import { sanitizeGoalText } from './utils/text'
+import { getGoalKey } from './utils/goalKeys'
 import {
   auth,
   db,
@@ -46,6 +47,7 @@ type StoredData = {
   boards: Board[]
   currentBoardId: string | null
   customGoals: GoalTemplate[]
+  dismissedRecentGoals?: string[]
   uiState?: UiState
 }
 
@@ -207,6 +209,7 @@ const playCelebrationTone = () => {
 function App() {
   // Core app state.
   const [sharedBoard, setSharedBoard] = useState<Board | null>(null)
+  const [dismissedRecentGoals, setDismissedRecentGoals] = useState<string[]>([])
   const maxGoalTextLength = useGoalTextLimit()
   const {
     boardTitle,
@@ -272,6 +275,7 @@ function App() {
     board,
     boards,
     suggestedGoals,
+    dismissedRecentGoals,
     maxGoalTextLength,
     createId: safeRandomId,
   })
@@ -321,6 +325,9 @@ function App() {
           setBoards((data.boards ?? []).map(normalizeBoard))
           setCurrentBoardId(data.currentBoardId ?? null)
           setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
+          if (Array.isArray(data.dismissedRecentGoals)) {
+            setDismissedRecentGoals(data.dismissedRecentGoals.filter((item) => typeof item === 'string'))
+          }
           if (data.uiState) {
             if (isFrequency(data.uiState.generationFrequency)) {
               setGenerationFrequency(data.uiState.generationFrequency)
@@ -382,6 +389,7 @@ function App() {
       boards,
       currentBoardId,
       customGoals,
+      dismissedRecentGoals,
       uiState: {
         generationFrequency,
         boardSize,
@@ -396,6 +404,7 @@ function App() {
     boards,
     currentBoardId,
     customGoals,
+    dismissedRecentGoals,
     generationFrequency,
     boardSize,
     customOnly,
@@ -431,6 +440,9 @@ function App() {
         setBoards((data.boards ?? []).map(normalizeBoard))
         setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
         setCurrentBoardId(data.currentBoardId ?? null)
+        if (Array.isArray(data.dismissedRecentGoals)) {
+          setDismissedRecentGoals(data.dismissedRecentGoals.filter((item) => typeof item === 'string'))
+        }
         if (data.uiState) {
           if (isFrequency(data.uiState.generationFrequency)) {
             setGenerationFrequency(data.uiState.generationFrequency)
@@ -492,6 +504,7 @@ function App() {
       boards: boards.map(serializeBoard),
       currentBoardId,
       customGoals,
+      dismissedRecentGoals,
       ...(uiStatePayload ? { uiState: uiStatePayload } : {}),
     }
     setSyncStatus('Syncing...')
@@ -509,6 +522,7 @@ function App() {
     boards,
     currentBoardId,
     customGoals,
+    dismissedRecentGoals,
     generationFrequency,
     boardSize,
     customOnly,
@@ -546,6 +560,16 @@ function App() {
     setBingoActive(bingo)
     setBingoLine(line)
   }, [board])
+
+  const handleDismissRecentGoals = () => {
+    if (recentChecked.length === 0) return
+    const next = new Set(dismissedRecentGoals)
+    recentChecked.forEach((goal) => {
+      next.add(getGoalKey(goal.frequency, goal.text))
+    })
+    setDismissedRecentGoals(Array.from(next))
+    handleClearRecent()
+  }
 
   // Build a new board from the selected goals and save it to history.
   const handleGenerateBoard = () => {
@@ -1034,6 +1058,7 @@ function App() {
           onAddCustomGoal={handleAddCustomGoal}
           onGenerateBoard={handleGenerateBoard}
           uniqueSelectedCount={uniqueSelectedCount}
+          onDismissRecentGoals={handleDismissRecentGoals}
           error={error}
           suggestedGoalsCount={suggestedGoals.length}
           customGoalsCount={customGoals.length}

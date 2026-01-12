@@ -19,6 +19,7 @@ type GoalsTabProps = {
   onAddCustomGoal: () => void
   onGenerateBoard: () => void
   uniqueSelectedCount: number
+  onDismissRecentGoals: () => void
   error: string | null
   suggestedGoalsCount: number
   customGoalsCount: number
@@ -66,6 +67,7 @@ const GoalsTab = ({
   onAddCustomGoal,
   onGenerateBoard,
   uniqueSelectedCount,
+  onDismissRecentGoals,
   error,
   suggestedGoalsCount,
   customGoalsCount,
@@ -223,6 +225,14 @@ const GoalsTab = ({
             </button>
             <button className="ghost small" type="button" onClick={onClearRecent}>
               Clear
+            </button>
+            <button
+              className="ghost small"
+              type="button"
+              onClick={onDismissRecentGoals}
+              disabled={selectedRecentIds.size === 0}
+            >
+              Dismiss selected
             </button>
           </div>
           <div className="checklist-items">
