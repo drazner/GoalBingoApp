@@ -8,9 +8,18 @@ type SortableTileProps = {
   index: number
   isBingoTile: boolean
   fillPercent: number
+  showEditButton?: boolean
+  onEditGoal?: (goalId: string) => void
 }
 
-const SortableTile = ({ goal, index, isBingoTile, fillPercent }: SortableTileProps) => {
+const SortableTile = ({
+  goal,
+  index,
+  isBingoTile,
+  fillPercent,
+  showEditButton = false,
+  onEditGoal,
+}: SortableTileProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: goal.id,
   })
@@ -33,6 +42,19 @@ const SortableTile = ({ goal, index, isBingoTile, fillPercent }: SortableTilePro
         <span className="cell-index">{index + 1}</span>
         {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
       </button>
+      {showEditButton && onEditGoal && (
+        <button
+          className="edit-button"
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            onEditGoal(goal.id)
+          }}
+        >
+          Edit
+        </button>
+      )}
     </div>
   )
 }

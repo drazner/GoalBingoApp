@@ -13,7 +13,19 @@
   }
 
   .cell-text {
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
+  }
+
+  .cell-index {
+    display: none;
+  }
+
+  .cell .edit-button {
+    display: none;
+  }
+
+  .cell.rearranging .edit-button {
+    display: inline-flex;
   }
 }
 

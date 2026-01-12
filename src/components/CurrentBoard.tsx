@@ -136,7 +136,7 @@ const CurrentBoard = ({
                 </button>
               )}
               <button className="ghost" onClick={onEnterRearrange}>
-                Rearrange
+                Edit
               </button>
               <button className="primary" onClick={onCopyShareLink}>
                 Share board
@@ -176,6 +176,8 @@ const CurrentBoard = ({
                     index={index}
                     isBingoTile={isBingoTile}
                     fillPercent={fillPercent}
+                    showEditButton
+                    onEditGoal={onEditGoal}
                   />
                 )
               })}
