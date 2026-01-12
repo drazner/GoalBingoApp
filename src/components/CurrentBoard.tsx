@@ -115,6 +115,9 @@ const CurrentBoard = ({
         <div className="board-actions">
           {isRearranging ? (
             <>
+              <button className="ghost" onClick={onResetProgress}>
+                Reset progress
+              </button>
               <button className="ghost" onClick={onRearrangeRandomize}>
                 Shuffle
               </button>
@@ -127,9 +130,6 @@ const CurrentBoard = ({
             </>
           ) : (
             <>
-              <button className="ghost" onClick={onResetProgress}>
-                Reset progress
-              </button>
               {hasEmptyTiles && (
                 <button className="ghost" onClick={onFillEmptyTiles}>
                   Fill empty tiles
