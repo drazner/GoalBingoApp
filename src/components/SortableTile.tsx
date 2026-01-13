@@ -35,10 +35,14 @@ const SortableTile = ({
         transition,
         background: `linear-gradient(to top, #bfead0 ${fillPercent}%, #ffffff ${fillPercent}%)`,
       }}
-      {...attributes}
-      {...listeners}
     >
-      <button className="cell-button" type="button" aria-pressed={goal.completed}>
+      <button
+        className="cell-button"
+        type="button"
+        aria-pressed={goal.completed}
+        {...attributes}
+        {...listeners}
+      >
         <span className="cell-index">{index + 1}</span>
         {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
       </button>

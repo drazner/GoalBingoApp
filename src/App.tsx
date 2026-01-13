@@ -616,13 +616,29 @@ function App() {
     }
 
     addKeys(recentCustomKeys)
-    if (!customOnly) {
-      addKeys(recentSuggestedKeys)
-    }
+    addKeys(recentSuggestedKeys)
     addKeys(recentOnlyKeys)
     addKeys(customOnlyKeys)
     if (!customOnly) {
       addKeys(suggestedOnlyKeys)
+    }
+
+    if (
+      selectedKeys.length === 0 &&
+      (recentChecked.length > 0 || customChecked.length > 0 || suggestedChecked.length > 0)
+    ) {
+      const fallbackSeen = new Set<string>()
+      const fallbackAdd = (goal: GoalTemplate) => {
+        const text = goal.text.trim()
+        if (!text) return
+        const key = makeKey(goal)
+        if (fallbackSeen.has(key)) return
+        fallbackSeen.add(key)
+        selectedKeys.push(key)
+      }
+      shuffle(recentChecked).forEach(fallbackAdd)
+      shuffle(customChecked).forEach(fallbackAdd)
+      shuffle(suggestedChecked).forEach(fallbackAdd)
     }
 
     const trimmedSelected = selectedKeys.slice(0, totalTiles)
@@ -778,9 +794,10 @@ function App() {
 
   const handleSaveRearrange = () => {
     if (!board) return
+    const boardById = new Map(board.goals.map((goal) => [goal.id, goal]))
     updateCurrentBoard((current) => ({
       ...current,
-      goals: draftGoals.map((goal) => ({ ...goal })),
+      goals: draftGoals.map((goal) => ({ ...goal, ...(boardById.get(goal.id) ?? {}) })),
     }))
     setDraftGoals([])
     setIsRearranging(false)
