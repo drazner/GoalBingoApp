@@ -39,9 +39,9 @@ const SortableTile = ({
       <button
         className="cell-button"
         type="button"
-        aria-pressed={goal.completed}
         {...attributes}
         {...listeners}
+        aria-pressed={goal.completed}
       >
         <span className="cell-index">{index + 1}</span>
         {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
