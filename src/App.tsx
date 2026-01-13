@@ -597,6 +597,9 @@ function App() {
     const recentSuggestedKeys = Array.from(recentMap.keys()).filter(
       (key) => suggestedMap.has(key) && !customMap.has(key)
     )
+    const recentOnlyKeys = Array.from(recentMap.keys()).filter(
+      (key) => !customMap.has(key) && !suggestedMap.has(key)
+    )
     const customOnlyKeys = Array.from(customMap.keys()).filter((key) => !recentMap.has(key))
     const suggestedOnlyKeys = Array.from(suggestedMap.keys()).filter(
       (key) => !recentMap.has(key) && !customMap.has(key)
@@ -616,6 +619,7 @@ function App() {
     if (!customOnly) {
       addKeys(recentSuggestedKeys)
     }
+    addKeys(recentOnlyKeys)
     addKeys(customOnlyKeys)
     if (!customOnly) {
       addKeys(suggestedOnlyKeys)
@@ -827,6 +831,13 @@ function App() {
     if (!target) {
       setEditGoalModal(null)
       return
+    }
+    if (isRearranging) {
+      setDraftGoals((prev) =>
+        prev.map((goal) =>
+          goal.id === editGoalModal.goalId ? { ...goal, text: cleanedText } : goal
+        )
+      )
     }
     updateCurrentBoard((current) => ({
       ...current,
