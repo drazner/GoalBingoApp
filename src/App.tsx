@@ -960,6 +960,71 @@ function App() {
     setSubgoalModal(null)
   }
 
+  const handleExportData = () => {
+    const uiStatePayload = isFrequency(generationFrequency) &&
+      isBoardSize(boardSize) &&
+      typeof customOnly === 'boolean' &&
+      isFrequency(customFrequency) &&
+      isFrequency(libraryFrequency) &&
+      isLibrarySource(librarySource)
+      ? serializeUiState({
+          generationFrequency,
+          boardSize,
+          customOnly,
+          customFrequency,
+          libraryFrequency,
+          librarySource,
+        })
+      : null
+    const payload: StoredData = {
+      boards: boards.map(serializeBoard),
+      currentBoardId,
+      customGoals,
+      dismissedRecentGoals,
+      ...(uiStatePayload ? { uiState: uiStatePayload } : {}),
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `goalbingo-backup-${new Date().toISOString().slice(0, 10)}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportData = (data: StoredData) => {
+    setBoards((data.boards ?? []).map(normalizeBoard))
+    setCurrentBoardId(data.currentBoardId ?? null)
+    setCustomGoals(normalizeCustomGoals(data.customGoals ?? []))
+    setTitleEdits({})
+    if (Array.isArray(data.dismissedRecentGoals)) {
+      setDismissedRecentGoals(data.dismissedRecentGoals.filter((item) => typeof item === 'string'))
+    } else {
+      setDismissedRecentGoals([])
+    }
+    if (data.uiState) {
+      if (isFrequency(data.uiState.generationFrequency)) {
+        setGenerationFrequency(data.uiState.generationFrequency)
+      }
+      if (isBoardSize(data.uiState.boardSize)) {
+        setBoardSize(data.uiState.boardSize)
+        setBoardSizeTouched(true)
+      }
+      if (typeof data.uiState.customOnly === 'boolean') {
+        setCustomOnly(data.uiState.customOnly)
+      }
+      if (isFrequency(data.uiState.customFrequency)) {
+        setCustomFrequency(data.uiState.customFrequency)
+      }
+      if (isFrequency(data.uiState.libraryFrequency)) {
+        setLibraryFrequency(data.uiState.libraryFrequency)
+      }
+      if (isLibrarySource(data.uiState.librarySource)) {
+        setLibrarySource(data.uiState.librarySource)
+      }
+    }
+  }
+
   // Create and copy a share link for the current board.
   const handleCopyShareLink = async () => {
     if (!board) return
@@ -1189,6 +1254,8 @@ function App() {
           }}
           onSaveTitle={handleSaveTitle}
           onDeleteBoard={handleDeleteBoard}
+          onExportData={handleExportData}
+          onImportData={handleImportData}
           maxBoardTitleLength={maxGoalTextLength}
           frequencyLabel={frequencyLabel}
           getBoardSize={getBoardSize}

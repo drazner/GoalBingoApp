@@ -1,6 +1,14 @@
 // History tab list with board stats and rename/open actions.
-import { useState } from 'react'
-import type { Board, Frequency } from '../types'
+import { useRef, useState } from 'react'
+import type { Board, Frequency, GoalTemplate, UiState } from '../types'
+
+type StoredData = {
+  boards: Board[]
+  currentBoardId: string | null
+  customGoals: GoalTemplate[]
+  dismissedRecentGoals?: string[]
+  uiState?: UiState
+}
 
 type BoardHistoryProps = {
   boards: Board[]
@@ -9,6 +17,8 @@ type BoardHistoryProps = {
   onOpenBoard: (id: string) => void
   onSaveTitle: (id: string) => void
   onDeleteBoard: (id: string) => void
+  onExportData: () => void
+  onImportData: (data: StoredData) => void
   maxBoardTitleLength: number
   frequencyLabel: Record<Frequency, string>
   getBoardSize: (board: Board | null) => number
@@ -22,6 +32,8 @@ const BoardHistory = ({
   onOpenBoard,
   onSaveTitle,
   onDeleteBoard,
+  onExportData,
+  onImportData,
   maxBoardTitleLength,
   frequencyLabel,
   getBoardSize,
@@ -31,6 +43,9 @@ const BoardHistory = ({
   const [deleteTarget, setDeleteTarget] = useState<Board | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deletedNotice, setDeletedNotice] = useState<string | null>(null)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
+  const [importError, setImportError] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const confirmMatches = deleteConfirm.trim().toLowerCase() === 'confirm delete'
 
   return (
@@ -185,6 +200,55 @@ const BoardHistory = ({
           </div>
         </div>
       )}
+      <div className="history-transfer">
+        <h3>Import / export</h3>
+        <p className="muted">Move your full board history between devices or installs.</p>
+        <div className="history-transfer-actions">
+          <button className="secondary" onClick={onExportData}>
+            Export data
+          </button>
+          <button
+            className="ghost"
+            onClick={() => {
+              setImportMessage(null)
+              setImportError(false)
+              fileInputRef.current?.click()
+            }}
+          >
+            Import data
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            className="visually-hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => {
+                try {
+                  const parsed = JSON.parse(String(reader.result ?? '')) as StoredData
+                  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.boards)) {
+                    throw new Error('Invalid data')
+                  }
+                  onImportData(parsed)
+                  setImportMessage('Import complete.')
+                  setImportError(false)
+                } catch {
+                  setImportMessage('Import failed. Please use a valid export file.')
+                  setImportError(true)
+                }
+                event.target.value = ''
+              }
+              reader.readAsText(file)
+            }}
+          />
+        </div>
+        {importMessage && (
+          <p className={importError ? 'error' : 'muted'}>{importMessage}</p>
+        )}
+      </div>
     </section>
   )
 }

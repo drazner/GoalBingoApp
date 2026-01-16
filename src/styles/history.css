@@ -84,3 +84,16 @@
 .history-actions-right {
   margin-left: auto;
 }
+
+.history-transfer {
+  border-top: 1px solid #eadfce;
+  padding-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.history-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
