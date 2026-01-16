@@ -32,8 +32,12 @@
 }
 
 .history-bingo {
-  color: #158522;
+  background: #158522;
+  color: var(--white);
+  padding: 4px 10px;
+  border-radius: 999px;
   font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .history-completion {

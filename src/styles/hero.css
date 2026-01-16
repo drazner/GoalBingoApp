@@ -55,14 +55,37 @@
 .sync-status {
   color: var(--muted);
   font-size: 0.85rem;
+  display: flex;
+  gap: 6px;
+}
+
+.sync-status-label {
+  color: var(--ink);
+}
+
+.sync-status-value {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.sync-status-value.sync-ok {
+  color: #158522;
+}
+
+.sync-status-value.sync-warn {
+  color: #dba057;
+}
+
+.sync-status-value.sync-error {
+  color: #e46658;
 }
 
 .hero-badge {
   position: absolute;
   top: 18px;
   right: 18px;
-  background: var(--sun);
-  color: var(--ink);
+  background: #158522;
+  color: var(--white);
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 600;
