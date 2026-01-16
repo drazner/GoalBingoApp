@@ -118,12 +118,33 @@
   }
 
   .history-card {
-    gap: 12px;
-    padding: 18px;
+    gap: 8px;
+    padding: 14px;
   }
 
   .history-meta {
+    gap: 4px;
+  }
+
+  .history-title {
+    font-size: 1.05rem;
+  }
+
+  .history-card .muted {
+    font-size: 0.9rem;
+  }
+
+  .history-status {
     gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .history-completion {
+    min-width: auto;
+  }
+
+  .history-bingo {
+    white-space: nowrap;
   }
 
   .history-actions {
