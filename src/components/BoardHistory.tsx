@@ -30,7 +30,7 @@ const BoardHistory = ({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Board | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
-  const confirmMatches = deleteConfirm.trim() === 'confirm delete'
+  const confirmMatches = deleteConfirm.trim().toLowerCase() === 'confirm delete'
 
   return (
     <section className="panel">
