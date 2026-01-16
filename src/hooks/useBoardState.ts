@@ -18,6 +18,7 @@ type UseBoardStateReturn = {
   updateCurrentBoard: (updater: (current: Board) => Board) => void
   handleOpenBoard: (id: string) => void
   handleSaveTitle: (id: string) => void
+  handleDeleteBoard: (id: string) => void
 }
 
 type UseBoardStateOptions = {
@@ -66,6 +67,24 @@ const useBoardState = ({
     [titleEdits]
   )
 
+  const handleDeleteBoard = useCallback(
+    (id: string) => {
+      setBoards((prev) => {
+        const next = prev.filter((item) => item.id !== id)
+        if (currentBoardId === id) {
+          setCurrentBoardId(next[0]?.id ?? null)
+        }
+        return next
+      })
+      setTitleEdits((prev) => {
+        if (!(id in prev)) return prev
+        const { [id]: _removed, ...rest } = prev
+        return rest
+      })
+    },
+    [currentBoardId, setCurrentBoardId, setTitleEdits]
+  )
+
   return {
     boards,
     setBoards,
@@ -79,6 +98,7 @@ const useBoardState = ({
     updateCurrentBoard,
     handleOpenBoard,
     handleSaveTitle,
+    handleDeleteBoard,
   }
 }
 

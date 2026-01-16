@@ -235,6 +235,7 @@ function App() {
     updateCurrentBoard,
     handleOpenBoard,
     handleSaveTitle,
+    handleDeleteBoard,
   } = useBoardState({ getBoardSize, maxBoardTitleLength: maxGoalTextLength })
   const {
     customText,
@@ -1187,6 +1188,7 @@ function App() {
             setActiveTab('board')
           }}
           onSaveTitle={handleSaveTitle}
+          onDeleteBoard={handleDeleteBoard}
           maxBoardTitleLength={maxGoalTextLength}
           frequencyLabel={frequencyLabel}
           getBoardSize={getBoardSize}

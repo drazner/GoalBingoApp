@@ -13,16 +13,70 @@
   gap: 16px;
   justify-content: space-between;
   align-items: center;
+  --history-status-width: 240px;
 }
 
 .history-meta {
   display: grid;
   gap: 8px;
-  min-width: 220px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.history-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: var(--history-status-width);
+}
+
+.history-bingo {
+  color: #158522;
+  font-weight: 600;
+}
+
+.history-completion {
+  min-width: 160px;
+  justify-content: center;
+}
+
+.history-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f1a17;
+  max-width: var(--history-status-width);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.history-title-input {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid #d6c9b9;
+  background: #fffdf9;
+  max-width: var(--history-status-width);
 }
 
 .history-actions {
   display: flex;
+  gap: 12px;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  flex: 0 1 900px;
+  width: 900px;
+}
+
+.history-actions-left,
+.history-actions-right {
+  display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.history-actions-right {
+  margin-left: auto;
 }
