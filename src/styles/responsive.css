@@ -67,7 +67,7 @@
   }
 }
 
-@media (max-width: 1024px) {
+@media (min-width: 721px) and (max-width: 1024px) {
   .history-card {
     align-items: flex-start;
     --history-status-width: 220px;
@@ -124,6 +124,7 @@
 
   .history-meta {
     gap: 4px;
+    flex: 0 0 auto;
   }
 
   .history-title {
@@ -151,11 +152,13 @@
     gap: 8px;
     flex-wrap: nowrap;
     width: 100%;
+    flex: 0 0 auto;
   }
 
   .history-actions-left,
   .history-actions-right {
     flex-wrap: nowrap;
+    flex: 0 0 auto;
   }
 
   .history-actions button {
