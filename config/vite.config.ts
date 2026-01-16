@@ -10,7 +10,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['apple-touch-icon.png'],
+      includeAssets: ['apple-touch-icon-test.png'],
       manifest: {
         name: 'Goal Bingo',
         short_name: 'Goal Bingo',
@@ -22,17 +22,17 @@ export default defineConfig({
         scope: '/GoalBingoApp/',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: '/pwa-192x192-test.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/pwa-512x512-test.png',
             sizes: '512x512',
             type: 'image/png',
           },
           {
-            src: '/pwa-512x512.png',
+            src: '/pwa-512x512-test.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
