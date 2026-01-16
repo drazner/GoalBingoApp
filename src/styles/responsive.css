@@ -116,6 +116,31 @@
     max-height: 110px;
     overflow: hidden;
   }
+
+  .history-card {
+    gap: 12px;
+    padding: 18px;
+  }
+
+  .history-meta {
+    gap: 6px;
+  }
+
+  .history-actions {
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .history-actions-left,
+  .history-actions-right {
+    flex-wrap: nowrap;
+  }
+
+  .history-actions button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
 }
 
 @media (hover: none) and (pointer: coarse) {
