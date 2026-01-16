@@ -66,6 +66,7 @@ const serializeGoal = (goal: Goal) => ({
   frequency: goal.frequency,
   completed: goal.completed,
   ...(goal.subgoals ? { subgoals: goal.subgoals } : {}),
+  ...(goal.saveSubgoalsToLibrary ? { saveSubgoalsToLibrary: true } : {}),
   ...(goal.sourceGoalId ? { sourceGoalId: goal.sourceGoalId } : {}),
 })
 
@@ -321,6 +322,7 @@ function App() {
   const editBaselineTextRef = useRef<string | null>(null)
   const editBaselineSubgoalsRef = useRef<Subgoal[] | null>(null)
   const editBaselineGoalIdRef = useRef<string | null>(null)
+  const editBaselineSaveToLibraryRef = useRef(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [bingoLine, setBingoLine] = useState<number[] | null>(null)
   const [pendingGoalSave, setPendingGoalSave] = useState<PendingGoalSave | null>(null)
@@ -763,6 +765,7 @@ function App() {
     editBaselineTextRef.current = null
     editBaselineSubgoalsRef.current = null
     editBaselineGoalIdRef.current = null
+    editBaselineSaveToLibraryRef.current = false
   }
 
   const restoreSubgoalBaseline = () => {
@@ -786,6 +789,7 @@ function App() {
     editBaselineTextRef.current = target.text
     editBaselineSubgoalsRef.current = target.subgoals ? target.subgoals.map((subgoal) => ({ ...subgoal })) : null
     editBaselineGoalIdRef.current = target.id
+    editBaselineSaveToLibraryRef.current = target.saveSubgoalsToLibrary ?? false
     if (target.subgoals && target.subgoals.length > 0) {
       if (isRearranging) {
         subgoalBaselineRef.current = target.subgoals.map((subgoal) => ({ ...subgoal }))
@@ -796,6 +800,7 @@ function App() {
       setSubgoalModal({
         goalId: target.id,
         subgoals: target.subgoals.map((subgoal) => ({ ...subgoal })),
+        saveToLibrary: target.saveSubgoalsToLibrary ?? false,
       })
       setSubgoalsRemoved(false)
     } else {
@@ -814,11 +819,13 @@ function App() {
       ? target.subgoals.map((subgoal) => ({ ...subgoal, done: false }))
       : null
     editBaselineGoalIdRef.current = target.id
+    editBaselineSaveToLibraryRef.current = false
     if (target.subgoals && target.subgoals.length > 0) {
       resetSubgoalBaseline()
       setSubgoalModal({
         goalId: target.id,
         subgoals: target.subgoals.map((subgoal) => ({ ...subgoal, done: false })),
+        saveToLibrary: false,
       })
       setSubgoalsRemoved(false)
     } else {
@@ -1055,6 +1062,8 @@ function App() {
       return
     }
     const baselineSubgoals = target.subgoals ?? []
+    const saveToLibrary =
+      subgoalModal?.saveToLibrary ?? target.saveSubgoalsToLibrary ?? false
     let nextSubgoals: Subgoal[] | undefined
     let subgoalsChanged = false
 
@@ -1079,7 +1088,8 @@ function App() {
     }
 
     const textChanged = cleanedText !== target.text
-    if (!textChanged && !subgoalsChanged) {
+    const savePrefChanged = saveToLibrary !== (editBaselineSaveToLibraryRef.current ?? false)
+    if (!textChanged && !subgoalsChanged && !savePrefChanged) {
       setEditGoalModal(null)
       setSubgoalModal(null)
       setSubgoalsRemoved(false)
@@ -1092,14 +1102,18 @@ function App() {
       if (isRearranging) {
         setDraftGoals((prev) =>
           prev.map((goal) =>
-            goal.id === editGoalModal.goalId ? { ...goal, text: cleanedText } : goal
+            goal.id === editGoalModal.goalId
+              ? { ...goal, text: cleanedText, saveSubgoalsToLibrary: saveToLibrary }
+              : goal
           )
         )
       } else {
         updateCurrentBoard((current) => ({
           ...current,
           goals: current.goals.map((goal) =>
-            goal.id === editGoalModal.goalId ? { ...goal, text: cleanedText } : goal
+            goal.id === editGoalModal.goalId
+              ? { ...goal, text: cleanedText, saveSubgoalsToLibrary: saveToLibrary }
+              : goal
           ),
         }))
       }
@@ -1110,29 +1124,49 @@ function App() {
       })
     }
 
-    if (subgoalsChanged) {
-      const allDone = nextSubgoals ? nextSubgoals.every((subgoal) => subgoal.done) : false
+    if (subgoalsChanged || savePrefChanged) {
+      const updatedSubgoals = subgoalsChanged ? nextSubgoals : target.subgoals
+      const allDone = updatedSubgoals ? updatedSubgoals.every((subgoal) => subgoal.done) : false
       if (isRearranging) {
-        if (nextSubgoals) {
-          updateDraftSubgoals(target.id, nextSubgoals)
-        } else {
-          removeDraftSubgoals(target.id)
-        }
-      }
-      if (!isRearranging) {
+        setDraftGoals((prev) =>
+          prev.map((goal) =>
+            goal.id === target.id
+              ? {
+                  ...goal,
+                  subgoals: updatedSubgoals,
+                  completed: updatedSubgoals ? allDone : false,
+                  saveSubgoalsToLibrary: saveToLibrary,
+                }
+              : goal
+          )
+        )
+      } else {
         updateCurrentBoard((current) => ({
           ...current,
           goals: current.goals.map((goal) =>
             goal.id === target.id
               ? {
                   ...goal,
-                  subgoals: nextSubgoals,
-                  completed: nextSubgoals ? allDone : false,
+                  subgoals: updatedSubgoals,
+                  completed: updatedSubgoals ? allDone : false,
+                  saveSubgoalsToLibrary: saveToLibrary,
                 }
               : goal
           ),
         }))
       }
+    }
+
+    const shouldSyncLibrarySubgoals =
+      saveToLibrary &&
+      (subgoalsChanged ||
+        (nextSubgoals && nextSubgoals.length > 0) ||
+        (target.subgoals && target.subgoals.length > 0))
+    if (shouldSyncLibrarySubgoals) {
+      const syncSubgoalsRaw = subgoalsChanged
+        ? nextSubgoals
+        : target.subgoals ?? nextSubgoals
+      const syncSubgoals = syncSubgoalsRaw?.map((subgoal) => ({ ...subgoal, done: false }))
       setCustomGoals((prev) => {
         const fallbackMatch = prev.find(
           (goal) =>
@@ -1142,18 +1176,31 @@ function App() {
         const matchId = target.sourceGoalId ?? fallbackMatch?.id
         if (matchId) {
           return prev.map((goal) =>
-            goal.id === matchId ? { ...goal, subgoals: nextSubgoals } : goal
+            goal.id === matchId
+              ? {
+                  ...goal,
+                  subgoals:
+                    syncSubgoals && syncSubgoals.length > 0
+                      ? syncSubgoals
+                      : subgoalsChanged
+                      ? undefined
+                      : goal.subgoals,
+                }
+              : goal
           )
         }
-        return [
-          ...prev,
-          {
-            id: safeRandomId(),
-            text: cleanedText,
-            frequency: target.frequency,
-            subgoals: nextSubgoals,
-          },
-        ]
+        if (syncSubgoals && syncSubgoals.length > 0) {
+          return [
+            ...prev,
+            {
+              id: safeRandomId(),
+              text: cleanedText,
+              frequency: target.frequency,
+              subgoals: syncSubgoals,
+            },
+          ]
+        }
+        return prev
       })
     }
 
@@ -1179,6 +1226,7 @@ function App() {
       setSubgoalModal({
         goalId: target.id,
         subgoals: base.map((subgoal) => ({ ...subgoal, done: false })),
+        saveToLibrary: false,
       })
       return
     }
@@ -1201,6 +1249,7 @@ function App() {
     setSubgoalModal({
       goalId: target.id,
       subgoals: base,
+      saveToLibrary: target.saveSubgoalsToLibrary ?? false,
     })
   }
 
@@ -1232,6 +1281,10 @@ function App() {
         : prev
     )
     setSubgoalsRemoved(false)
+  }
+
+  const handleToggleSubgoalLibrarySync = (value: boolean) => {
+    setSubgoalModal((prev) => (prev ? { ...prev, saveToLibrary: value } : prev))
   }
 
   const handleAddSubgoal = () => {
@@ -1430,13 +1483,21 @@ function App() {
       editBaselineGoalIdRef.current === editGoalModal.goalId
         ? editBaselineSubgoalsRef.current ?? undefined
         : undefined
+    const baselineSavePref =
+      editBaselineGoalIdRef.current === editGoalModal.goalId
+        ? editBaselineSaveToLibraryRef.current
+        : false
     let subgoalsChanged = false
     if (subgoalsRemoved) {
       subgoalsChanged = (baselineSubgoals?.length ?? 0) > 0
     } else if (subgoalModal && subgoalModal.goalId === editGoalModal.goalId) {
       subgoalsChanged = !areSubgoalsEqual(subgoalModal.subgoals, baselineSubgoals)
     }
-    return textChanged || subgoalsChanged
+    const savePrefChanged =
+      editGoalModal.scope === 'board' && subgoalModal
+        ? subgoalModal.saveToLibrary !== baselineSavePref
+        : false
+    return textChanged || subgoalsChanged || savePrefChanged
   })()
 
   return (
@@ -1466,6 +1527,7 @@ function App() {
         onDeleteSubgoal={handleDeleteSubgoal}
         onRemoveSubgoals={handleRemoveSubgoals}
         onAddSubgoal={handleAddSubgoal}
+        onToggleSubgoalLibrarySync={handleToggleSubgoalLibrarySync}
       />
       <Hero
         board={board}

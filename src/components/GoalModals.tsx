@@ -18,6 +18,7 @@ type GoalModalsProps = {
   onDeleteSubgoal: (id: string) => void
   onRemoveSubgoals: () => void
   onAddSubgoal: () => void
+  onToggleSubgoalLibrarySync: (value: boolean) => void
 }
 
 const GoalModals = ({
@@ -36,6 +37,7 @@ const GoalModals = ({
   onDeleteSubgoal,
   onRemoveSubgoals,
   onAddSubgoal,
+  onToggleSubgoalLibrarySync,
 }: GoalModalsProps) => {
   const [showRemovePrompt, setShowRemovePrompt] = useState(false)
   const [showCancelPrompt, setShowCancelPrompt] = useState(false)
@@ -161,6 +163,16 @@ const GoalModals = ({
                       Add subgoal
                     </button>
                   </div>
+                  {editGoalModal.scope === 'board' && (
+                    <label className="subgoal-save-toggle">
+                      <input
+                        type="checkbox"
+                        checked={subgoalModal.saveToLibrary}
+                        onChange={(event) => onToggleSubgoalLibrarySync(event.target.checked)}
+                      />
+                      <span>Save subgoals to goal library</span>
+                    </label>
+                  )}
                 </div>
               )}
               <div className="modal-actions">

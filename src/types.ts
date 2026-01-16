@@ -21,6 +21,7 @@ export type Goal = {
   completed: boolean
   sourceGoalId?: string
   subgoals?: Subgoal[]
+  saveSubgoalsToLibrary?: boolean
 }
 
 export type Board = {
@@ -47,6 +48,7 @@ export type EditGoalModalState = {
 export type SubgoalModalState = {
   goalId: string
   subgoals: Subgoal[]
+  saveToLibrary: boolean
 }
 
 export type UiState = {
