@@ -5,6 +5,7 @@ export type GoalTemplate = {
   id: string
   text: string
   frequency: Frequency
+  subgoals?: Subgoal[]
 }
 
 export type Subgoal = {
@@ -40,6 +41,7 @@ export type PendingGoalSave = {
 export type EditGoalModalState = {
   goalId: string
   text: string
+  scope: 'board' | 'library'
 }
 
 export type SubgoalModalState = {

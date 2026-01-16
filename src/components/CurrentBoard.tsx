@@ -193,6 +193,7 @@ const CurrentBoard = ({
             const isBingoTile = bingoLine?.includes(index) ?? false
             const progress = getGoalProgress(goal)
             const fillPercent = Math.round(progress * 100)
+            const hasSubgoals = (goal.subgoals?.length ?? 0) > 0
             return (
               <div
                 key={goal.id}
@@ -211,6 +212,13 @@ const CurrentBoard = ({
                     <span className="cell-placeholder">Empty tile</span>
                   )}
                 </button>
+                {hasSubgoals && (
+                  <div className="subgoal-indicator" aria-hidden="true">
+                    <span className="subgoal-dot" />
+                    <span className="subgoal-dot" />
+                    <span className="subgoal-dot" />
+                  </div>
+                )}
               </div>
             )
           })}

@@ -60,6 +60,33 @@
   gap: 12px;
 }
 
+.goal-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goal-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-subgoal-indicator {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.goal-subgoal-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sun);
+  border: 1px solid var(--ink);
+}
+
 .goal-actions {
   display: inline-flex;
   align-items: center;

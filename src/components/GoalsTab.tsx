@@ -1,5 +1,6 @@
 // Goals tab UI for creating boards and managing goals.
-import type { Frequency, Goal, GoalTemplate } from '../types'
+import type { Frequency, Goal, GoalTemplate, Subgoal } from '../types'
+import { useState } from 'react'
 
 type GoalsTabProps = {
   boardTitle: string
@@ -16,6 +17,8 @@ type GoalsTabProps = {
   maxGoalTextLength: number
   customFrequency: Frequency
   onCustomFrequencyChange: (value: Frequency) => void
+  customSubgoals: Subgoal[]
+  onCustomSubgoalsChange: (value: Subgoal[]) => void
   onAddCustomGoal: () => void
   onGenerateBoard: () => void
   uniqueSelectedCount: number
@@ -45,8 +48,10 @@ type GoalsTabProps = {
   filteredLibraryGoals: GoalTemplate[] | Goal[]
   customLibraryGoals: GoalTemplate[]
   frequencyLabel: Record<Frequency, string>
-  onEditCustomGoal: (id: string) => void
   onDeleteCustomGoal: (id: string) => void
+  onEditLibraryGoal: (id: string) => void
+  onEditBoardGoal: (id: string) => void
+  onDeleteBoardGoal: (id: string) => void
 }
 
 const GoalsTab = ({
@@ -64,6 +69,8 @@ const GoalsTab = ({
   maxGoalTextLength,
   customFrequency,
   onCustomFrequencyChange,
+  customSubgoals,
+  onCustomSubgoalsChange,
   onAddCustomGoal,
   onGenerateBoard,
   uniqueSelectedCount,
@@ -93,10 +100,136 @@ const GoalsTab = ({
   filteredLibraryGoals,
   customLibraryGoals,
   frequencyLabel,
-  onEditCustomGoal,
   onDeleteCustomGoal,
+  onEditLibraryGoal,
+  onEditBoardGoal,
+  onDeleteBoardGoal,
 }: GoalsTabProps) => (
-  <>
+  <GoalsTabView
+    boardTitle={boardTitle}
+    onBoardTitleChange={onBoardTitleChange}
+    maxBoardTitleLength={maxBoardTitleLength}
+    generationFrequency={generationFrequency}
+    onGenerationFrequencyChange={onGenerationFrequencyChange}
+    boardSize={boardSize}
+    onBoardSizeChange={onBoardSizeChange}
+    customOnly={customOnly}
+    onCustomOnlyChange={onCustomOnlyChange}
+    customText={customText}
+    onCustomTextChange={onCustomTextChange}
+    maxGoalTextLength={maxGoalTextLength}
+    customFrequency={customFrequency}
+    onCustomFrequencyChange={onCustomFrequencyChange}
+    customSubgoals={customSubgoals}
+    onCustomSubgoalsChange={onCustomSubgoalsChange}
+    onAddCustomGoal={onAddCustomGoal}
+    onGenerateBoard={onGenerateBoard}
+    uniqueSelectedCount={uniqueSelectedCount}
+    onDismissRecentGoals={onDismissRecentGoals}
+    error={error}
+    suggestedGoalsCount={suggestedGoalsCount}
+    customGoalsCount={customGoalsCount}
+    customAvailable={customAvailable}
+    suggestedAvailable={suggestedAvailable}
+    recentIncompleteAvailable={recentIncompleteAvailable}
+    selectedCustomIds={selectedCustomIds}
+    selectedSuggestedIds={selectedSuggestedIds}
+    selectedRecentIds={selectedRecentIds}
+    onToggleCustomSelection={onToggleCustomSelection}
+    onToggleSuggestedSelection={onToggleSuggestedSelection}
+    onToggleRecentSelection={onToggleRecentSelection}
+    onSelectAllCustom={onSelectAllCustom}
+    onClearCustom={onClearCustom}
+    onSelectAllSuggested={onSelectAllSuggested}
+    onClearSuggested={onClearSuggested}
+    onSelectAllRecent={onSelectAllRecent}
+    onClearRecent={onClearRecent}
+    libraryFrequency={libraryFrequency}
+    onLibraryFrequencyChange={onLibraryFrequencyChange}
+    librarySource={librarySource}
+    onLibrarySourceChange={onLibrarySourceChange}
+    filteredLibraryGoals={filteredLibraryGoals}
+    customLibraryGoals={customLibraryGoals}
+    frequencyLabel={frequencyLabel}
+    onDeleteCustomGoal={onDeleteCustomGoal}
+    onEditLibraryGoal={onEditLibraryGoal}
+    onEditBoardGoal={onEditBoardGoal}
+    onDeleteBoardGoal={onDeleteBoardGoal}
+  />
+)
+
+const GoalsTabView = ({
+  boardTitle,
+  onBoardTitleChange,
+  maxBoardTitleLength,
+  generationFrequency,
+  onGenerationFrequencyChange,
+  boardSize,
+  onBoardSizeChange,
+  customOnly,
+  onCustomOnlyChange,
+  customText,
+  onCustomTextChange,
+  maxGoalTextLength,
+  customFrequency,
+  onCustomFrequencyChange,
+  customSubgoals,
+  onCustomSubgoalsChange,
+  onAddCustomGoal,
+  onGenerateBoard,
+  uniqueSelectedCount,
+  onDismissRecentGoals,
+  error,
+  suggestedGoalsCount,
+  customGoalsCount,
+  customAvailable,
+  suggestedAvailable,
+  recentIncompleteAvailable,
+  selectedCustomIds,
+  selectedSuggestedIds,
+  selectedRecentIds,
+  onToggleCustomSelection,
+  onToggleSuggestedSelection,
+  onToggleRecentSelection,
+  onSelectAllCustom,
+  onClearCustom,
+  onSelectAllSuggested,
+  onClearSuggested,
+  onSelectAllRecent,
+  onClearRecent,
+  libraryFrequency,
+  onLibraryFrequencyChange,
+  librarySource,
+  onLibrarySourceChange,
+  filteredLibraryGoals,
+  customLibraryGoals,
+  frequencyLabel,
+  onDeleteCustomGoal,
+  onEditLibraryGoal,
+  onEditBoardGoal,
+  onDeleteBoardGoal,
+}: GoalsTabProps) => {
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    text: string
+    source: 'custom' | 'board'
+  } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [showCustomSubgoals, setShowCustomSubgoals] = useState(false)
+  const confirmMatches = deleteConfirm.trim().toLowerCase() === 'confirm delete'
+  const draftSubgoals = customSubgoals ?? []
+  const createSubgoalId = () => `subgoal-${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+  const ensureDefaultSubgoals = () => {
+    if (draftSubgoals.length > 0) return
+    onCustomSubgoalsChange([
+      { id: createSubgoalId(), text: 'Subgoal 1', done: false },
+      { id: createSubgoalId(), text: 'Subgoal 2', done: false },
+    ])
+  }
+
+  return (
+    <>
     <section className="panel">
       <div className="panel-header">
         <h2>Create your board</h2>
@@ -324,10 +457,94 @@ const GoalsTab = ({
             ))}
           </select>
         </label>
-        <button className="secondary" type="button" onClick={onAddCustomGoal}>
+        <button
+          className="secondary"
+          type="button"
+          onClick={() => {
+            onAddCustomGoal()
+            setShowCustomSubgoals(false)
+          }}
+        >
           Add custom goal
         </button>
       </div>
+      <button
+        className="secondary"
+        type="button"
+        onClick={() => {
+          setShowCustomSubgoals((prev) => {
+            const next = !prev
+            if (next) ensureDefaultSubgoals()
+            return next
+          })
+        }}
+      >
+        {showCustomSubgoals ? 'Hide subgoals' : 'Break down goal'}
+      </button>
+      {showCustomSubgoals && (
+        <div className="edit-goal-subgoals">
+          <div className="edit-goal-subgoals-header">
+            <div>
+              <h3>Break down goal</h3>
+              <p>Track subgoals to show partial progress on the tile.</p>
+            </div>
+          </div>
+          <div className="subgoal-list">
+            {draftSubgoals.map((subgoal, index) => (
+              <div key={subgoal.id} className="subgoal-row no-subgoal-toggle">
+                <div className="subgoal-text">
+                  <input
+                    type="text"
+                    value={subgoal.text}
+                    onChange={(event) =>
+                      onCustomSubgoalsChange(
+                        draftSubgoals.map((item) =>
+                          item.id === subgoal.id ? { ...item, text: event.target.value } : item
+                        )
+                      )
+                    }
+                    placeholder={`Subgoal ${index + 1}`}
+                    maxLength={maxGoalTextLength}
+                  />
+                  {subgoal.text.length >= Math.ceil(maxGoalTextLength * 0.8) && (
+                    <span className="muted small-text">
+                      {subgoal.text.length}/{maxGoalTextLength}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="ghost small"
+                  type="button"
+                  onClick={() => {
+                    if (draftSubgoals.length <= 2) {
+                      onCustomSubgoalsChange([])
+                      setShowCustomSubgoals(false)
+                      return
+                    }
+                    onCustomSubgoalsChange(draftSubgoals.filter((item) => item.id !== subgoal.id))
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="subgoal-actions">
+            <button
+              className="secondary small"
+              type="button"
+              onClick={() => {
+                onCustomSubgoalsChange([
+                  ...draftSubgoals,
+                  { id: createSubgoalId(), text: `Subgoal ${draftSubgoals.length + 1}`, done: false },
+                ])
+              }}
+            >
+              Add subgoal
+            </button>
+          </div>
+        </div>
+      )}
     </section>
 
     <section className="panel">
@@ -370,13 +587,29 @@ const GoalsTab = ({
           ) : (
             customLibraryGoals.map((goal) => (
               <div key={goal.id} className="goal-list-item">
-                <span>{goal.text}</span>
+                <div className="goal-text">
+                  <span>{goal.text}</span>
+                </div>
                 <div className="goal-actions">
+                  {(goal.subgoals?.length ?? 0) > 0 && (
+                    <span className="goal-subgoal-indicator" aria-hidden="true">
+                      <span className="goal-subgoal-dot" />
+                      <span className="goal-subgoal-dot" />
+                      <span className="goal-subgoal-dot" />
+                    </span>
+                  )}
                   <span className="goal-chip">{frequencyLabel[goal.frequency]}</span>
-                  <button className="ghost small" type="button" onClick={() => onEditCustomGoal(goal.id)}>
+                  <button className="ghost small" type="button" onClick={() => onEditLibraryGoal(goal.id)}>
                     Edit
                   </button>
-                  <button className="ghost small danger" type="button" onClick={() => onDeleteCustomGoal(goal.id)}>
+                  <button
+                    className="ghost small danger"
+                    type="button"
+                    onClick={() => {
+                      setDeleteTarget({ id: goal.id, text: goal.text, source: 'custom' })
+                      setDeleteConfirm('')
+                    }}
+                  >
                     Delete
                   </button>
                 </div>
@@ -387,15 +620,90 @@ const GoalsTab = ({
           <p className="muted">No goals found for this filter yet.</p>
         ) : (
           filteredLibraryGoals.map((goal, index) => (
-            <div key={(goal as GoalTemplate).id ?? `${(goal as GoalTemplate).text}-${index}`} className="goal-list-item">
-              <span>{(goal as GoalTemplate).text}</span>
-              <span className="goal-chip">{frequencyLabel[(goal as GoalTemplate).frequency as Frequency]}</span>
+            <div
+              key={(goal as GoalTemplate).id ?? `${(goal as GoalTemplate).text}-${index}`}
+              className="goal-list-item"
+            >
+              <div className="goal-text">
+                <span>{(goal as GoalTemplate).text}</span>
+              </div>
+              <div className="goal-meta">
+                {('subgoals' in goal ? (goal as Goal).subgoals?.length ?? 0 : 0) > 0 && (
+                  <span className="goal-subgoal-indicator" aria-hidden="true">
+                    <span className="goal-subgoal-dot" />
+                    <span className="goal-subgoal-dot" />
+                    <span className="goal-subgoal-dot" />
+                  </span>
+                )}
+                <span className="goal-chip">
+                  {frequencyLabel[(goal as GoalTemplate).frequency as Frequency]}
+                </span>
+                {librarySource === 'generated' && 'id' in goal && (
+                  <>
+                    <button
+                      className="ghost small"
+                      type="button"
+                      onClick={() => onEditBoardGoal(goal.id)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="ghost small danger"
+                      type="button"
+                      onClick={() => {
+                        setDeleteTarget({
+                          id: goal.id,
+                          text: (goal as GoalTemplate).text,
+                          source: 'board',
+                        })
+                        setDeleteConfirm('')
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ))
         )}
       </div>
     </section>
+    {deleteTarget && (
+      <div className="modal-overlay" role="dialog" aria-modal="true">
+        <div className="modal">
+          <h3>Deleting {deleteTarget.text} goal. Are you sure you want to delete it?</h3>
+          <input
+            type="text"
+            placeholder="confirm delete"
+            value={deleteConfirm}
+            onChange={(event) => setDeleteConfirm(event.target.value)}
+          />
+          <div className="modal-actions">
+            <button
+              className="danger"
+              onClick={() => {
+                if (!confirmMatches) return
+                if (deleteTarget.source === 'custom') {
+                  onDeleteCustomGoal(deleteTarget.id)
+                } else {
+                  onDeleteBoardGoal(deleteTarget.id)
+                }
+                setDeleteTarget(null)
+              }}
+            >
+              Delete
+            </button>
+            <button className="ghost" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>
 )
+
+}
 
 export default GoalsTab

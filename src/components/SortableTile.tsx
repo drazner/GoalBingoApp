@@ -23,6 +23,7 @@ const SortableTile = ({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: goal.id,
   })
+  const hasSubgoals = (goal.subgoals?.length ?? 0) > 0
 
   return (
     <div
@@ -46,6 +47,13 @@ const SortableTile = ({
         <span className="cell-index">{index + 1}</span>
         {goal.text ? <span className="cell-text">{goal.text}</span> : <span className="cell-placeholder">Empty tile</span>}
       </button>
+      {hasSubgoals && (
+        <div className="subgoal-indicator" aria-hidden="true">
+          <span className="subgoal-dot" />
+          <span className="subgoal-dot" />
+          <span className="subgoal-dot" />
+        </div>
+      )}
       {showEditButton && onEditGoal && (
         <button
           className="edit-button"

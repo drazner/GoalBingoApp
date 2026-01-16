@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { DESKTOP_GOAL_TEXT_LIMIT } from '../constants'
-import type { Board, Frequency, Goal, GoalTemplate } from '../types'
+import type { Board, Frequency, Goal, GoalTemplate, Subgoal } from '../types'
 import { getGoalKey } from '../utils/goalKeys'
 import { sanitizeGoalText } from '../utils/text'
 
@@ -23,6 +23,8 @@ type UseGoalLibraryReturn = {
   setCustomFrequency: (value: Frequency) => void
   customGoals: GoalTemplate[]
   setCustomGoals: Dispatch<SetStateAction<GoalTemplate[]>>
+  customSubgoals: Subgoal[]
+  setCustomSubgoals: Dispatch<SetStateAction<Subgoal[]>>
   libraryFrequency: Frequency
   setLibraryFrequency: (value: Frequency) => void
   librarySource: 'suggested' | 'custom' | 'generated'
@@ -64,6 +66,7 @@ const useGoalLibrary = ({
   const [customText, setCustomText] = useState('')
   const [customFrequency, setCustomFrequency] = useState<Frequency>('weekly')
   const [customGoals, setCustomGoals] = useState<GoalTemplate[]>([])
+  const [customSubgoals, setCustomSubgoals] = useState<Subgoal[]>([])
   const [selectedCustomIds, setSelectedCustomIds] = useState<Set<string>>(new Set())
   const [selectedSuggestedIds, setSelectedSuggestedIds] = useState<Set<string>>(new Set())
   const [selectedRecentIds, setSelectedRecentIds] = useState<Set<string>>(new Set())
@@ -180,15 +183,25 @@ const useGoalLibrary = ({
   const handleAddCustomGoal = () => {
     const cleaned = sanitizeGoalText(customText, maxGoalTextLength)
     if (!cleaned) return
+    const cleanedSubgoals = customSubgoals
+      .map((subgoal) => ({
+        ...subgoal,
+        text: sanitizeGoalText(subgoal.text, maxGoalTextLength),
+      }))
+      .filter((subgoal) => subgoal.text)
+      .map((subgoal) => ({ ...subgoal, done: false }))
+    const finalSubgoals = cleanedSubgoals.length >= 2 ? cleanedSubgoals : []
     setCustomGoals((prev) => [
       ...prev,
       {
         id: createId(),
         text: cleaned,
         frequency: customFrequency,
+        ...(finalSubgoals.length > 0 ? { subgoals: finalSubgoals } : {}),
       },
     ])
     setCustomText('')
+    setCustomSubgoals([])
   }
 
   const handleEditCustomGoal = (id: string) => {
@@ -204,10 +217,6 @@ const useGoalLibrary = ({
   }
 
   const handleDeleteCustomGoal = (id: string) => {
-    const target = customGoals.find((goal) => goal.id === id)
-    if (!target) return
-    const confirmed = window.confirm('Are you sure you want to delete this goal?')
-    if (!confirmed) return
     setCustomGoals((prev) => prev.filter((goal) => goal.id !== id))
   }
 
@@ -281,6 +290,8 @@ const useGoalLibrary = ({
     setCustomFrequency,
     customGoals,
     setCustomGoals,
+    customSubgoals,
+    setCustomSubgoals,
     libraryFrequency,
     setLibraryFrequency,
     librarySource,
