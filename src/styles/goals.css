@@ -28,6 +28,29 @@
   flex-wrap: wrap;
 }
 
+.sort-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.sort-control select {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.sort-control--form {
+  display: grid;
+  gap: 8px;
+  font-size: 1rem;
+}
+
+.sort-control--form select {
+  padding: 10px 12px;
+  font-size: 1rem;
+}
+
 .checklist-items {
   display: grid;
   gap: 8px;

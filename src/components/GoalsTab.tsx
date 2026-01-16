@@ -19,6 +19,14 @@ type GoalsTabProps = {
   onCustomFrequencyChange: (value: Frequency) => void
   customSubgoals: Subgoal[]
   onCustomSubgoalsChange: (value: Subgoal[]) => void
+  customSortOption: SortOption
+  onCustomSortOptionChange: (value: SortOption) => void
+  suggestedSortOption: SortOption
+  onSuggestedSortOptionChange: (value: SortOption) => void
+  recentSortOption: SortOption
+  onRecentSortOptionChange: (value: SortOption) => void
+  librarySortOption: SortOption
+  onLibrarySortOptionChange: (value: SortOption) => void
   onAddCustomGoal: () => void
   onGenerateBoard: () => void
   uniqueSelectedCount: number
@@ -54,6 +62,27 @@ type GoalsTabProps = {
   onDeleteBoardGoal: (id: string) => void
 }
 
+type SortOption =
+  | 'alpha-asc'
+  | 'alpha-desc'
+  | 'date-used-asc'
+  | 'date-used-desc'
+  | 'date-created-asc'
+  | 'date-created-desc'
+
+const baseSortOptions: { value: SortOption; label: string }[] = [
+  { value: 'alpha-asc', label: 'Alphabetical Asc' },
+  { value: 'alpha-desc', label: 'Alphabetical Desc' },
+  { value: 'date-used-asc', label: 'Date Used Asc' },
+  { value: 'date-used-desc', label: 'Date Used Desc' },
+]
+
+const customSortOptions: { value: SortOption; label: string }[] = [
+  ...baseSortOptions,
+  { value: 'date-created-asc', label: 'Date Created Asc' },
+  { value: 'date-created-desc', label: 'Date Created Desc' },
+]
+
 const GoalsTab = ({
   boardTitle,
   onBoardTitleChange,
@@ -71,6 +100,14 @@ const GoalsTab = ({
   onCustomFrequencyChange,
   customSubgoals,
   onCustomSubgoalsChange,
+  customSortOption,
+  onCustomSortOptionChange,
+  suggestedSortOption,
+  onSuggestedSortOptionChange,
+  recentSortOption,
+  onRecentSortOptionChange,
+  librarySortOption,
+  onLibrarySortOptionChange,
   onAddCustomGoal,
   onGenerateBoard,
   uniqueSelectedCount,
@@ -122,6 +159,14 @@ const GoalsTab = ({
     onCustomFrequencyChange={onCustomFrequencyChange}
     customSubgoals={customSubgoals}
     onCustomSubgoalsChange={onCustomSubgoalsChange}
+    customSortOption={customSortOption}
+    onCustomSortOptionChange={onCustomSortOptionChange}
+    suggestedSortOption={suggestedSortOption}
+    onSuggestedSortOptionChange={onSuggestedSortOptionChange}
+    recentSortOption={recentSortOption}
+    onRecentSortOptionChange={onRecentSortOptionChange}
+    librarySortOption={librarySortOption}
+    onLibrarySortOptionChange={onLibrarySortOptionChange}
     onAddCustomGoal={onAddCustomGoal}
     onGenerateBoard={onGenerateBoard}
     uniqueSelectedCount={uniqueSelectedCount}
@@ -175,6 +220,14 @@ const GoalsTabView = ({
   onCustomFrequencyChange,
   customSubgoals,
   onCustomSubgoalsChange,
+  customSortOption,
+  onCustomSortOptionChange,
+  suggestedSortOption,
+  onSuggestedSortOptionChange,
+  recentSortOption,
+  onRecentSortOptionChange,
+  librarySortOption,
+  onLibrarySortOptionChange,
   onAddCustomGoal,
   onGenerateBoard,
   uniqueSelectedCount,
@@ -297,6 +350,19 @@ const GoalsTabView = ({
             <button className="ghost small" type="button" onClick={onClearCustom}>
               Clear
             </button>
+            <label className="sort-control">
+              Sort
+              <select
+                value={customSortOption}
+                onChange={(event) => onCustomSortOptionChange(event.target.value as SortOption)}
+              >
+                {customSortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="checklist-items">
             {customAvailable.length === 0 ? (
@@ -328,6 +394,19 @@ const GoalsTabView = ({
             <button className="ghost small" type="button" onClick={onClearSuggested}>
               Clear
             </button>
+            <label className="sort-control">
+              Sort
+              <select
+                value={suggestedSortOption}
+                onChange={(event) => onSuggestedSortOptionChange(event.target.value as SortOption)}
+              >
+                {baseSortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="checklist-items">
             {suggestedAvailable.length === 0 ? (
@@ -359,6 +438,19 @@ const GoalsTabView = ({
             <button className="ghost small" type="button" onClick={onClearRecent}>
               Clear
             </button>
+            <label className="sort-control">
+              Sort
+              <select
+                value={recentSortOption}
+                onChange={(event) => onRecentSortOptionChange(event.target.value as SortOption)}
+              >
+                {baseSortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               className="ghost small"
               type="button"
@@ -577,6 +669,23 @@ const GoalsTabView = ({
             <option value="suggested">Suggested goals</option>
             <option value="custom">Custom goals</option>
             <option value="generated">Generated board goals</option>
+          </select>
+        </label>
+        <label className="sort-control sort-control--form">
+          Sort
+          <select
+            value={librarySource === 'custom' ? customSortOption : librarySortOption}
+            onChange={(event) =>
+              (librarySource === 'custom'
+                ? onCustomSortOptionChange
+                : onLibrarySortOptionChange)(event.target.value as SortOption)
+            }
+          >
+            {(librarySource === 'custom' ? customSortOptions : baseSortOptions).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
       </div>

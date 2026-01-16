@@ -6,6 +6,7 @@ export type GoalTemplate = {
   text: string
   frequency: Frequency
   subgoals?: Subgoal[]
+  dateCreated?: string
 }
 
 export type Subgoal = {

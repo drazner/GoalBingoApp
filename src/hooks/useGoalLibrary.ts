@@ -16,6 +16,14 @@ type UseGoalLibraryOptions = {
   createId: () => string
 }
 
+type SortOption =
+  | 'alpha-asc'
+  | 'alpha-desc'
+  | 'date-used-asc'
+  | 'date-used-desc'
+  | 'date-created-asc'
+  | 'date-created-desc'
+
 type UseGoalLibraryReturn = {
   customText: string
   setCustomText: (value: string) => void
@@ -25,6 +33,14 @@ type UseGoalLibraryReturn = {
   setCustomGoals: Dispatch<SetStateAction<GoalTemplate[]>>
   customSubgoals: Subgoal[]
   setCustomSubgoals: Dispatch<SetStateAction<Subgoal[]>>
+  customSortOption: SortOption
+  setCustomSortOption: (value: SortOption) => void
+  suggestedSortOption: SortOption
+  setSuggestedSortOption: (value: SortOption) => void
+  recentSortOption: SortOption
+  setRecentSortOption: (value: SortOption) => void
+  librarySortOption: SortOption
+  setLibrarySortOption: (value: SortOption) => void
   libraryFrequency: Frequency
   setLibraryFrequency: (value: Frequency) => void
   librarySource: 'suggested' | 'custom' | 'generated'
@@ -75,6 +91,34 @@ const useGoalLibrary = ({
   const [librarySource, setLibrarySource] = useState<'suggested' | 'custom' | 'generated'>(
     'suggested'
   )
+  const [customSortOption, setCustomSortOption] = useState<SortOption>(() => {
+    if (typeof window === 'undefined') return 'date-created-desc'
+    return (localStorage.getItem('goalbingo-custom-sort') as SortOption) ?? 'date-created-desc'
+  })
+  const [suggestedSortOption, setSuggestedSortOption] = useState<SortOption>(() => {
+    if (typeof window === 'undefined') return 'alpha-asc'
+    return (localStorage.getItem('goalbingo-suggested-sort') as SortOption) ?? 'alpha-asc'
+  })
+  const [recentSortOption, setRecentSortOption] = useState<SortOption>(() => {
+    if (typeof window === 'undefined') return 'date-used-desc'
+    return (localStorage.getItem('goalbingo-recent-sort') as SortOption) ?? 'date-used-desc'
+  })
+  const [librarySortOption, setLibrarySortOption] = useState<SortOption>('alpha-asc')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('goalbingo-custom-sort', customSortOption)
+  }, [customSortOption])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('goalbingo-suggested-sort', suggestedSortOption)
+  }, [suggestedSortOption])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('goalbingo-recent-sort', recentSortOption)
+  }, [recentSortOption])
 
   const customAvailable = useMemo(
     () => customGoals.filter((goal) => goal.frequency === generationFrequency),
@@ -85,6 +129,47 @@ const useGoalLibrary = ({
     () => suggestedGoals.filter((goal) => goal.frequency === generationFrequency),
     [generationFrequency, suggestedGoals]
   )
+
+  const lastUsedMap = useMemo(() => {
+    const map = new Map<string, number>()
+    boards.forEach((boardItem) => {
+      const usedAt = Date.parse(boardItem.createdAt) || 0
+      boardItem.goals.forEach((goal) => {
+        const text = goal.text.trim()
+        if (!text) return
+        const key = getGoalKey(goal.frequency, text)
+        const existing = map.get(key) ?? 0
+        if (usedAt > existing) map.set(key, usedAt)
+      })
+    })
+    return map
+  }, [boards])
+
+  const getDateUsed = (goal: GoalTemplate | Goal) =>
+    lastUsedMap.get(getGoalKey(goal.frequency, goal.text.trim())) ?? 0
+
+  const getDateCreated = (goal: GoalTemplate | Goal) =>
+    'dateCreated' in goal && goal.dateCreated ? Date.parse(goal.dateCreated) || 0 : 0
+
+  const sortGoals = <T extends GoalTemplate | Goal>(items: T[], option: SortOption) => {
+    const next = [...items]
+    switch (option) {
+      case 'alpha-asc':
+        return next.sort((a, b) => a.text.localeCompare(b.text))
+      case 'alpha-desc':
+        return next.sort((a, b) => b.text.localeCompare(a.text))
+      case 'date-used-asc':
+        return next.sort((a, b) => getDateUsed(a) - getDateUsed(b))
+      case 'date-used-desc':
+        return next.sort((a, b) => getDateUsed(b) - getDateUsed(a))
+      case 'date-created-asc':
+        return next.sort((a, b) => getDateCreated(a) - getDateCreated(b))
+      case 'date-created-desc':
+        return next.sort((a, b) => getDateCreated(b) - getDateCreated(a))
+      default:
+        return next
+    }
+  }
 
   const recentIncompleteAvailable = useMemo(() => {
     const isIncomplete = (goal: Goal) => {
@@ -147,12 +232,34 @@ const useGoalLibrary = ({
   )
 
   const customLibraryGoals = useMemo(
-    () =>
-      customGoals
-        .filter((goal) => goal.frequency === libraryFrequency)
-        .map((goal) => ({ ...goal })),
+    () => customGoals.filter((goal) => goal.frequency === libraryFrequency),
     [customGoals, libraryFrequency]
   )
+
+  const sortedCustomAvailable = useMemo(
+    () => sortGoals(customAvailable, customSortOption),
+    [customAvailable, customSortOption, lastUsedMap]
+  )
+
+  const sortedSuggestedAvailable = useMemo(
+    () => sortGoals(suggestedAvailable, suggestedSortOption),
+    [suggestedAvailable, suggestedSortOption, lastUsedMap]
+  )
+
+  const sortedRecentIncompleteAvailable = useMemo(
+    () => sortGoals(recentIncompleteAvailable, recentSortOption),
+    [recentIncompleteAvailable, recentSortOption, lastUsedMap]
+  )
+
+  const sortedCustomLibraryGoals = useMemo(
+    () => sortGoals(customLibraryGoals, customSortOption),
+    [customLibraryGoals, customSortOption, lastUsedMap]
+  )
+
+  const sortedFilteredLibraryGoals = useMemo(() => {
+    const option = librarySource === 'custom' ? customSortOption : librarySortOption
+    return sortGoals(filteredLibraryGoals, option)
+  }, [filteredLibraryGoals, librarySortOption, customSortOption, librarySource, lastUsedMap])
 
   useEffect(() => {
     const suggestedIds = suggestedAvailable.map((goal) => goal.id)
@@ -198,6 +305,7 @@ const useGoalLibrary = ({
         text: cleaned,
         frequency: customFrequency,
         ...(finalSubgoals.length > 0 ? { subgoals: finalSubgoals } : {}),
+        dateCreated: new Date().toISOString(),
       },
     ])
     setCustomText('')
@@ -292,6 +400,14 @@ const useGoalLibrary = ({
     setCustomGoals,
     customSubgoals,
     setCustomSubgoals,
+    customSortOption,
+    setCustomSortOption,
+    suggestedSortOption,
+    setSuggestedSortOption,
+    recentSortOption,
+    setRecentSortOption,
+    librarySortOption,
+    setLibrarySortOption,
     libraryFrequency,
     setLibraryFrequency,
     librarySource,
@@ -299,14 +415,14 @@ const useGoalLibrary = ({
     selectedCustomIds,
     selectedSuggestedIds,
     selectedRecentIds,
-    customAvailable,
-    suggestedAvailable,
-    recentIncompleteAvailable,
+    customAvailable: sortedCustomAvailable,
+    suggestedAvailable: sortedSuggestedAvailable,
+    recentIncompleteAvailable: sortedRecentIncompleteAvailable,
     customChecked,
     suggestedChecked,
     recentChecked,
-    filteredLibraryGoals,
-    customLibraryGoals,
+    filteredLibraryGoals: sortedFilteredLibraryGoals,
+    customLibraryGoals: sortedCustomLibraryGoals,
     handleAddCustomGoal,
     handleEditCustomGoal,
     handleDeleteCustomGoal,

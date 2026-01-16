@@ -75,6 +75,7 @@ const serializeCustomGoal = (goal: GoalTemplate) => ({
   text: goal.text,
   frequency: goal.frequency,
   ...(goal.subgoals ? { subgoals: goal.subgoals } : {}),
+  ...(goal.dateCreated ? { dateCreated: goal.dateCreated } : {}),
 })
 
 const serializeBoard = (board: Board) => ({
@@ -152,8 +153,28 @@ const getBoardSize = (board: Board | null) => {
 }
 
 // Ensure custom goals always have IDs (for older saved data).
-const normalizeCustomGoals = (goals: GoalTemplate[]) =>
-  goals.map((goal) => (goal.id ? goal : { ...goal, id: safeRandomId() }))
+const CUSTOM_GOAL_BASE_KEY = 'goalbingo-custom-goal-base'
+const CUSTOM_GOAL_BASE_DELTA_MS = 1
+
+const normalizeCustomGoals = (goals: GoalTemplate[]) => {
+  let baseTimestamp = Date.now()
+  if (typeof window !== 'undefined') {
+    const stored = window.localStorage.getItem(CUSTOM_GOAL_BASE_KEY)
+    if (stored) {
+      const parsed = Number(stored)
+      if (!Number.isNaN(parsed)) baseTimestamp = parsed
+    } else {
+      window.localStorage.setItem(CUSTOM_GOAL_BASE_KEY, String(baseTimestamp))
+    }
+  }
+
+  return goals.map((goal, index) => ({
+    ...goal,
+    id: goal.id || safeRandomId(),
+    dateCreated:
+      goal.dateCreated ?? new Date(baseTimestamp + index * CUSTOM_GOAL_BASE_DELTA_MS).toISOString(),
+  }))
+}
 
 // Ensure board has a size (for older saved data).
 const normalizeBoard = (board: Board): Board => ({
@@ -267,6 +288,14 @@ function App() {
     setCustomGoals,
     customSubgoals,
     setCustomSubgoals,
+    customSortOption,
+    setCustomSortOption,
+    suggestedSortOption,
+    setSuggestedSortOption,
+    recentSortOption,
+    setRecentSortOption,
+    librarySortOption,
+    setLibrarySortOption,
     libraryFrequency,
     setLibraryFrequency,
     librarySource,
@@ -967,6 +996,7 @@ function App() {
           id: safeRandomId(),
           text: pendingGoalSave.text,
           frequency: pendingGoalSave.frequency,
+          dateCreated: new Date().toISOString(),
         },
       ])
     }
@@ -1197,6 +1227,7 @@ function App() {
               text: cleanedText,
               frequency: target.frequency,
               subgoals: syncSubgoals,
+              dateCreated: new Date().toISOString(),
             },
           ]
         }
@@ -1591,6 +1622,14 @@ function App() {
           onCustomFrequencyChange={setCustomFrequency}
           customSubgoals={customSubgoals}
           onCustomSubgoalsChange={setCustomSubgoals}
+          customSortOption={customSortOption}
+          onCustomSortOptionChange={setCustomSortOption}
+          suggestedSortOption={suggestedSortOption}
+          onSuggestedSortOptionChange={setSuggestedSortOption}
+          recentSortOption={recentSortOption}
+          onRecentSortOptionChange={setRecentSortOption}
+          librarySortOption={librarySortOption}
+          onLibrarySortOptionChange={setLibrarySortOption}
           onAddCustomGoal={handleAddCustomGoal}
           onGenerateBoard={handleGenerateBoard}
           uniqueSelectedCount={uniqueSelectedCount}
