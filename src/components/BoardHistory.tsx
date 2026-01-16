@@ -30,6 +30,7 @@ const BoardHistory = ({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Board | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deletedNotice, setDeletedNotice] = useState<string | null>(null)
   const confirmMatches = deleteConfirm.trim().toLowerCase() === 'confirm delete'
 
   return (
@@ -159,6 +160,7 @@ const BoardHistory = ({
                 onClick={() => {
                   if (!confirmMatches) return
                   onDeleteBoard(deleteTarget.id)
+                  setDeletedNotice(deleteTarget.title)
                   setDeleteTarget(null)
                 }}
               >
@@ -166,6 +168,18 @@ const BoardHistory = ({
               </button>
               <button className="ghost" onClick={() => setDeleteTarget(null)}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {deletedNotice && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h3>{deletedNotice} board deleted</h3>
+            <div className="modal-actions">
+              <button className="primary" onClick={() => setDeletedNotice(null)}>
+                OK
               </button>
             </div>
           </div>
